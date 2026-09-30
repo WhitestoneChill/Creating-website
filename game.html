@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小精靈 Pac-Man</title>
+<style>
+  :root{
+    --bg:#03060a;
+    --panel:#071018;
+    --cyan:#00f6ff;
+    --yellow:#ffe600;
+    --pink:#ff3b9d;
+    --green:#35ff7a;
+    --blue:#2d6cff;
+    --text:#d9fbff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Courier New",monospace}
+  body{display:flex;justify-content:center;overflow-x:hidden}
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:20;
+    background:repeating-linear-gradient(to bottom,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 2px,transparent 4px);
+    mix-blend-mode:screen;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:21;
+    box-shadow:inset 0 0 100px rgba(0,255,255,.06),inset 0 0 35px rgba(0,0,0,.8);
+  }
+  .wrap{width:min(760px,100%);padding:14px 14px 28px}
+  .home{
+    display:inline-block;color:var(--cyan);text-decoration:none;font-weight:bold;
+    font-size:14px;margin:2px 0 12px;text-shadow:0 0 8px var(--cyan)
+  }
+  .home:hover{color:#fff}
+  header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:10px}
+  h1{font-size:clamp(22px,5vw,36px);margin:0;color:var(--yellow);letter-spacing:2px;text-shadow:0 0 7px #ff0,0 0 18px #f90}
+  .sub{font-size:11px;color:#6fb8bd;letter-spacing:1px}
+  .hud{
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px
+  }
+  .hudBox{
+    border:1px solid #164a52;background:linear-gradient(180deg,#07141b,#03090e);
+    padding:8px 10px;box-shadow:0 0 12px rgba(0,246,255,.08) inset
+  }
+  .label{display:block;font-size:10px;color:#5eaeb4;letter-spacing:1px}
+  .value{font-size:20px;color:#fff;text-shadow:0 0 8px var(--cyan)}
+  #score{color:var(--yellow);text-shadow:0 0 8px #ff0}
+  .gameShell{
+    position:relative;border:2px solid var(--cyan);background:#000;
+    box-shadow:0 0 8px var(--cyan),0 0 30px rgba(0,246,255,.15);
+    padding:7px;border-radius:3px
+  }
+  canvas{display:block;width:100%;height:auto;background:#000;image-rendering:pixelated}
+  .overlay{
+    position:absolute;inset:7px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.78);backdrop-filter:blur(2px);z-index:5;text-align:center
+  }
+  .overlay.hidden{display:none}
+  .card{padding:25px 18px;max-width:90%;border:1px solid #2a646b;background:rgba(2,10,14,.92);box-shadow:0 0 22px rgba(0,246,255,.15)}
+  .card h2{margin:0 0 12px;color:var(--pink);font-size:clamp(24px,7vw,42px);text-shadow:0 0 10px var(--pink)}
+  .card p{margin:7px 0;color:#9fd8dc;font-size:13px;line-height:1.7}
+  button{
+    font:inherit;font-weight:bold;color:#001014;background:var(--cyan);border:0;
+    padding:11px 18px;margin-top:13px;cursor:pointer;
+    box-shadow:0 0 10px rgba(0,246,255,.7);border-radius:2px
+  }
+  button:active{transform:translateY(1px);filter:brightness(1.25)}
+  .touch{
+    display:none;margin:13px auto 0;width:min(270px,80vw);
+    user-select:none;touch-action:none
+  }
+  .touchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .touch button{
+    margin:0;height:58px;padding:0;font-size:25px;background:#061820;color:var(--cyan);
+    border:1px solid #157783;box-shadow:0 0 9px rgba(0,246,255,.16);text-shadow:0 0 8px var(--cyan)
+  }
+  .touch .blank{visibility:hidden}
+  .help{text-align:center;color:#416c70;font-size:10px;margin-top:10px}
+  @media (pointer:coarse),(max-width:700px){.touch{display:block}}
+  @media (min-width:701px){.touch{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home" href="index.html">← 回首頁</a>
+  <header>
+    <div>
+      <h1>小精靈 // PAC-MAN</h1>
+      <div class="sub">NEON MAZE SYSTEM · CRT EDITION</div>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="hudBox"><span class="label">目前分數</span><span class="value" id="score">000000</span></div>
+    <div class="hudBox"><span class="label">最高分</span><span class="value" id="highScore">000000</span></div>
+  </div>
+
+  <div class="gameShell">
+    <canvas id="game" width="448" height="496" aria-label="小精靈遊戲畫面"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="card">
+        <h2 id="overlayTitle">小精靈</h2>
+        <p id="overlayText">吃掉所有豆子，避開幽靈！</p>
+        <p>電腦：方向鍵　｜　手機：下方觸控按鈕</p>
+        <button id="startBtn">開始遊戲</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="touch" aria-label="觸控方向鍵">
+    <div class="touchGrid">
+      <button class="blank" aria-hidden="true"></button>
+      <button data-dir="up" aria-label="向上">▲</button>
+      <button class="blank" aria-hidden="true"></button>
+      <button data-dir="left" aria-label="向左">◀</button>
+      <button data-dir="down" aria-label="向下">▼</button>
+      <button data-dir="right" aria-label="向右">▶</button>
+    </div>
+  </div>
+  <div class="help">收集所有豆子即可過關；吃到能量豆後，幽靈會暫時變弱。</div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const highEl = document.getElementById("highScore");
+  const overlay = document.getElementById("overlay");
+  const titleEl = document.getElementById("overlayTitle");
+  const textEl = document.getElementById("overlayText");
+  const startBtn = document.getElementById("startBtn");
+
+  const TILE = 16;
+  const COLS = 28, ROWS = 31;
+
+  // 0=通道，1=牆，2=豆子，3=能量豆
+  const raw = [
+    "1111111111111111111111111111",
+    "1222222222221111222222222221",
+    "1211112111121111211112111121",
+    "1311112111121111211112111131",
+    "1211112111121111211112111121",
+    "1222222222222222222222222221",
+    "1211112111211111112111211121",
+    "1222222111222111222111222221",
+    "1111112111112111211112111111",
+    "0000012112222111222211120000",
+    "1111112112111111111121121111",
+    "0000022222112222221122220000",
+    "1111112112112222221121121111",
+    "0000012112112222221121120000",
+    "1111112112111111111121121111",
+    "1222222112222222222221122221",
+    "1211112112111111111121121121",
+    "1311222222122222222112222131",
+    "1111211111121111112111112111",
+    "000121222222222222222222121000",
+    "111121211111211121111211121111",
+    "122222211112211122111122222221",
+    "121111111112111121111111111121",
+    "122222222222222222222222222221",
+    "121111211121111111211121111121",
+    "122222211122211122211122222221",
+    "111111211111211121111211111111",
+    "000002222222222222222222200000",
+    "1111111111111111111111111111",
+    "1111111111111111111111111111",
+    "1111111111111111111111111111"
+  ];
+
+  // 修正邊界與通道：依畫布尺寸建立可玩的迷宮。
+  const map = raw.map(r => r.padEnd(COLS, "1").slice(0, COLS).split("").map(Number));
+  // 開啟左右隧道
+  for(let r=9;r<=11;r++){ map[r][0]=0; map[r][COLS-1]=0; }
+  for(let r=13;r<=13;r++){ map[r][0]=0; map[r][COLS-1]=0; }
+  // 製造中央幽靈屋與玩家區
+  for(let c=11;c<=16;c++) map[13][c]=0;
+  for(let c=10;c<=17;c++) map[14][c]=0;
+  for(let c=10;c<=17;c++) map[15][c]=0;
+
+  let pellets = [];
+  function rebuildPellets(){
+    pellets = [];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(map[r][c]===2 || map[r][c]===3) pellets.push({x:c,y:r,power:map[r][c]===3});
+    }
+  }
+  rebuildPellets();
+
+  const dirs = {
+    up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0}
+  };
+  const dirList = ["up","left","down","right"];
+  let player, ghosts, score=0, highScore=Number(localStorage.getItem("pacmanHighScore")||0);
+  let running=false, gameOver=false, frightenedUntil=0, lastTime=0, tick=0;
+  let requestedDir="left";
+
+  highEl.textContent = String(highScore).padStart(6,"0");
+
+  function resetGame(){
+    score=0; tick=0; frightenedUntil=0; requestedDir="left";
+    rebuildPellets();
+    player={x:14,y:17,dir:"left",next:"left",mouth:0};
+    ghosts=[
+      {x:13,y:14,dir:"left",color:"#ff3b9d",home:{x:13,y:14}},
+      {x:14,y:14,dir:"up",color:"#00e5ff",home:{x:14,y:14}},
+      {x:15,y:14,dir:"right",color:"#ff8b32",home:{x:15,y:14}},
+      {x:16,y:14,dir:"left",color:"#b86cff",home:{x:16,y:14}}
+    ];
+    updateScore();
+    draw();
+  }
+
+  function updateScore(){
+    scoreEl.textContent=String(score).padStart(6,"0");
+    if(score>highScore){
+      highScore=score;
+      localStorage.setItem("pacmanHighScore",String(highScore));
+      highEl.textContent=String(highScore).padStart(6,"0");
+    }
+  }
+
+  function canMove(x,y,dir){
+    const d=dirs[dir], nx=x+d.x, ny=y+d.y;
+    if(ny<0 || ny>=ROWS) return false;
+    if(nx<0 || nx>=COLS) return (ny>=9&&ny<=13);
+    return map[ny][nx]!==1;
+  }
+
+  function moveEntity(e){
+    if(!canMove(e.x,e.y,e.dir)){
+      if(e===player && canMove(e.x,e.y,e.next)) e.dir=e.next;
+      else if(e!==player){
+        const choices=dirList.filter(d=>canMove(e.x,e.y,d) && !isReverse(d,e.dir));
+        if(choices.length) e.dir=choices[Math.floor(Math.random()*choices.length)];
+      }
+    }
+    if(!canMove(e.x,e.y,e.dir)) return;
+    const d=dirs[e.dir];
+    e.x+=d.x; e.y+=d.y;
+    if(e.x<0) e.x=COLS-1;
+    if(e.x>=COLS) e.x=0;
+  }
+
+  function isReverse(a,b){return (a==="up"&&b==="down")||(a==="down"&&b==="up")||(a==="left"&&b==="right")||(a==="right"&&b==="left")}
+
+  function collect(){
+    for(let i=pellets.length-1;i>=0;i--){
+      const p=pellets[i];
+      if(p.x===player.x && p.y===player.y){
+        pellets.splice(i,1);
+        score += p.power ? 50 : 10;
+        if(p.power){
+          frightenedUntil=performance.now()+7000;
+          score+=0;
+        }
+        updateScore();
+        if(pellets.length===0) endGame(true);
+        break;
+      }
+    }
+  }
+
+  function ghostMove(g){
+    const choices=dirList.filter(d=>canMove(g.x,g.y,d));
+    if(!choices.length)return;
+    const reverse={up:"down",down:"up",left:"right",right:"left"}[g.dir];
+    let valid=choices.filter(d=>d!==reverse);
+    if(!valid.length)valid=choices;
+
+    // 一部分追蹤、一部分隨機，保持經典街機感。
+    if(Math.random()<0.65){
+      valid.sort((a,b)=>{
+        const da=distanceAfter(g,a), db=distanceAfter(g,b);
+        return frightenedUntil>performance.now()?db-da:da-db;
+      });
+    }
+    g.dir=valid[0];
+    moveEntity(g);
+  }
+
+  function distanceAfter(g,d){
+    const q=dirs[d];
+    let x=g.x+q.x,y=g.y+q.y;
+    if(x<0)x=COLS-1;if(x>=COLS)x=0;
+    return Math.abs(x-player.x)+Math.abs(y-player.y);
+  }
+
+  function collision(){
+    for(const g of ghosts){
+      if(g.x===player.x && g.y===player.y){
+        if(frightenedUntil>performance.now()){
+          score+=200; updateScore();
+          g.x=g.home.x; g.y=g.home.y; g.dir="up";
+        }else{
+          endGame(false); return;
+        }
+      }
+    }
+  }
+
+  function step(){
+    if(!running)return;
+    player.next=requestedDir;
+    if(canMove(player.x,player.y,player.next)) player.dir=player.next;
+    moveEntity(player);
+    collect();
+    if(!running)return;
+
+    // 幽靈移動稍慢
+    if(tick%2===0) ghosts.forEach(ghostMove);
+    collision();
+    tick++;
+  }
+
+  function loop(t){
+    if(!lastTime)lastTime=t;
+    if(running && t-lastTime>125){
+      step();
+      lastTime=t;
+    }
+    draw(t);
+    requestAnimationFrame(loop);
+  }
+
+  function draw(t=0){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // 迷宮牆
+    ctx.save();
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(map[r][c]===1){
+        const x=c*TILE,y=r*TILE;
+        ctx.strokeStyle="#008c9a";
+        ctx.shadowColor="#00f6ff";ctx.shadowBlur=5;
+        ctx.lineWidth=1.3;
+        ctx.strokeRect(x+1.5,y+1.5,TILE-3,TILE-3);
+      }
+    }
+    ctx.restore();
+
+    // 豆子
+    const pulse=2+Math.sin(t/130)*1;
+    ctx.save();
+    for(const p of pellets){
+      const x=p.x*TILE+TILE/2,y=p.y*TILE+TILE/2;
+      ctx.beginPath();
+      ctx.fillStyle=p.power?"#fff":"#ffe600";
+      ctx.shadowColor=p.power?"#fff":"#ffe600";
+      ctx.shadowBlur=p.power?10:5;
+      ctx.arc(x,y,p.power?3.5+pulse:1.7,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 幽靈
+    const frightened=frightenedUntil>performance.now();
+    ghosts.forEach(g=>drawGhost(g,frightened,t));
+
+    // 玩家
+    drawPacman(player,t);
+  }
+
+  function drawPacman(p,t){
+    const x=p.x*TILE+TILE/2,y=p.y*TILE+TILE/2;
+    const angle={right:0,down:Math.PI/2,left:Math.PI,up:-Math.PI/2}[p.dir]||0;
+    const mouth=.22+.16*Math.abs(Math.sin(t/90));
+    ctx.save();
+    ctx.translate(x,y);ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0,7, mouth*Math.PI, (2-mouth)*Math.PI);
+    ctx.closePath();
+    ctx.fillStyle="#ffe600";ctx.shadowColor="#ffe600";ctx.shadowBlur=12;ctx.fill();
+    ctx.restore();
+  }
+
+  function drawGhost(g,frightened,t){
+    const x=g.x*TILE+TILE/2,y=g.y*TILE+TILE/2;
+    ctx.save();ctx.translate(x,y);
+    ctx.fillStyle=frightened?"#2857ff":g.color;
+    ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=8;
+    ctx.beginPath();
+    ctx.arc(0,-1,7,Math.PI,0);
+    ctx.lineTo(7,7);ctx.lineTo(4,5);ctx.lineTo(1,7);ctx.lineTo(-2,5);ctx.lineTo(-5,7);ctx.lineTo(-7,5);ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle="#fff";
+    ctx.beginPath();ctx.arc(-2.5,-2,2,0,Math.PI*2);ctx.arc(2.5,-2,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=frightened?"#fff":"#17304a";
+    ctx.beginPath();ctx.arc(-2.5,-2,1,0,Math.PI*2);ctx.arc(2.5,-2,1,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  function endGame(won){
+    running=false;gameOver=true;
+    titleEl.textContent=won?"關卡完成！":"遊戲結束";
+    textEl.innerHTML=`本次分數：<strong style="color:#ffe600">${score}</strong><br>最高分：<strong style="color:#00f6ff">${highScore}</strong>`;
+    startBtn.textContent="重新開始";
+    overlay.classList.remove("hidden");
+  }
+
+  function start(){
+    resetGame();
+    gameOver=false;running=true;
+    overlay.classList.add("hidden");
+    lastTime=0;
+  }
+
+  function setDir(d){
+    if(!running)return;
+    requestedDir=d;
+    player.next=d;
+  }
+
+  window.addEventListener("keydown",e=>{
+    const keyMap={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
+    if(keyMap[e.key]){
+      e.preventDefault();
+      if(!running && !gameOver) start();
+      setDir(keyMap[e.key]);
+    }
+    if(e.key==="Enter" && !running) start();
+  },{passive:false});
+
+  document.querySelectorAll(".touch button[data-dir]").forEach(btn=>{
+    const d=btn.dataset.dir;
+    btn.addEventListener("pointerdown",e=>{e.preventDefault();setDir(d)});
+  });
+  startBtn.addEventListener("click",start);
+
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
