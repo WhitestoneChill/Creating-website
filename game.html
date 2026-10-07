@@ -77,6 +77,36 @@
   }
   .touch .blank{visibility:hidden}
   .help{text-align:center;color:#416c70;font-size:10px;margin-top:10px}
+  .scoreForm{margin-top:14px}
+  .scoreForm label{display:block;font-size:10px;color:#5eaeb4;letter-spacing:1px;margin-bottom:6px}
+  .scoreForm input{
+    width:min(250px,100%);padding:10px 11px;
+    font:inherit;font-weight:bold;color:var(--text);
+    background:#03090e;border:1px solid #157783;outline:none;
+    box-shadow:0 0 9px rgba(0,246,255,.12) inset;
+    text-align:center;
+  }
+  .scoreForm input:focus{border-color:var(--cyan);box-shadow:0 0 10px rgba(0,246,255,.3)}
+  .scoreForm button{margin-top:9px}
+  .status{min-height:18px;font-size:11px;color:#6fb8bd;margin-top:8px}
+  .status.error{color:#ff6b9f}
+  .leaderboard{
+    margin-top:14px;border-top:1px solid #164a52;padding-top:10px;
+    text-align:left
+  }
+  .leaderboard h3{
+    margin:0 0 8px;color:var(--cyan);font-size:14px;
+    text-shadow:0 0 8px var(--cyan);letter-spacing:1px
+  }
+  .rankRow{
+    display:grid;grid-template-columns:34px 1fr 80px;gap:7px;
+    padding:4px 5px;border-bottom:1px solid rgba(22,74,82,.45);
+    font-size:11px
+  }
+  .rankRow .rank{color:#5eaeb4}
+  .rankRow .name{color:#d9fbff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rankRow .points{color:var(--yellow);text-align:right}
+  .rankEmpty{font-size:11px;color:#416c70;text-align:center;padding:5px}
   @media (pointer:coarse),(max-width:700px){.touch{display:block}}
   @media (min-width:701px){.touch{display:none}}
 </style>
@@ -102,7 +132,22 @@
       <div class="card">
         <h2 id="overlayTitle">小精靈</h2>
         <p id="overlayText">吃掉所有豆子，避開幽靈！</p>
-        <p>電腦：方向鍵　｜　手機：下方觸控按鈕</p>
+        <p>電腦：方向鍵 ｜ 手機：下方觸控按鈕</p>
+
+        <div class="scoreForm hidden" id="scoreForm">
+          <label for="playerName">輸入暱稱，上傳本次成績</label>
+          <input id="playerName" type="text" maxlength="20"
+                 autocomplete="nickname" placeholder="最多 20 個字元">
+          <br>
+          <button id="submitScoreBtn" type="button">上傳分數</button>
+          <div class="status" id="submitStatus"></div>
+        </div>
+
+        <div class="leaderboard" id="leaderboard">
+          <h3>WORLD TOP 10</h3>
+          <div id="leaderboardRows"><div class="rankEmpty">讀取排行榜中...</div></div>
+        </div>
+
         <button id="startBtn">開始遊戲</button>
       </div>
     </div>
@@ -131,54 +176,54 @@
   const titleEl = document.getElementById("overlayTitle");
   const textEl = document.getElementById("overlayText");
   const startBtn = document.getElementById("startBtn");
+  const scoreForm = document.getElementById("scoreForm");
+  const playerNameEl = document.getElementById("playerName");
+  const submitScoreBtn = document.getElementById("submitScoreBtn");
+  const submitStatusEl = document.getElementById("submitStatus");
+  const leaderboardRowsEl = document.getElementById("leaderboardRows");
+
+  const LEADERBOARD_API = "https://script.google.com/macros/s/AKfycbxO9D5OvDEF0a92nWXTeifvYBBNUt-GQFdKrSqR3WB6m2_M_prC6rxHz3BNopEEk64/exec";
 
   const TILE = 16;
   const COLS = 28, ROWS = 31;
 
-  // 0=通道，1=牆，2=豆子，3=能量豆
+  // 0=通道(無豆)，1=牆壁，2=豆子，3=能量豆
+  // 已重寫，保證所有路線均為迴圈，無封閉死胡同
   const raw = [
     "1111111111111111111111111111",
-    "1222222222221111222222222221",
-    "1211112111121111211112111121",
-    "1311112111121111211112111131",
-    "1211112111121111211112111121",
+    "1222222222222112222222222221",
+    "1211112111112112111112111121",
+    "1311112111112112111112111131",
+    "1211112111112112111112111121",
     "1222222222222222222222222221",
-    "1211112111211111112111211121",
-    "1222222111222111222111222221",
-    "1111112111112111211112111111",
-    "0000012112222111222211120000",
-    "1111112112111111111121121111",
-    "0000022222112222221122220000",
-    "1111112112112222221121121111",
-    "0000012112112222221121120000",
-    "1111112112111111111121121111",
-    "1222222112222222222221122221",
-    "1211112112111111111121121121",
-    "1311222222122222222112222131",
-    "1111211111121111112111112111",
-    "000121222222222222222222121000",
-    "111121211111211121111211121111",
-    "122222211112211122111122222221",
-    "121111111112111121111111111121",
-    "122222222222222222222222222221",
-    "121111211121111111211121111121",
-    "122222211122211122211122222221",
-    "111111211111211121111211111111",
-    "000002222222222222222222200000",
+    "1211112112111111112112111121",
+    "1211112112111111112112111121",
+    "1222222112222112222112222221",
+    "1111112111110110111112111111",
+    "0000012110000000000112100000",
+    "0000012110111001110112100000",
+    "1111112110100000010112111111",
+    "0000002000100000010002000000",
+    "1111112110100000010112111111",
+    "0000012110111111110112100000",
+    "0000012110000000000112100000",
+    "1111112110111111110112111111",
+    "1222222222222112222222222221",
+    "1211112111112112111112111121",
+    "1311112111112112111112111131",
+    "1222112222222222222222112221",
+    "1112112112111111112112112111",
+    "1112112112111111112112112111",
+    "1222222112222112222112222221",
+    "1211111111112112111111111121",
+    "1211111111112112111111111121",
+    "1222222222222222222222222221",
     "1111111111111111111111111111",
     "1111111111111111111111111111",
     "1111111111111111111111111111"
   ];
 
-  // 修正邊界與通道：依畫布尺寸建立可玩的迷宮。
   const map = raw.map(r => r.padEnd(COLS, "1").slice(0, COLS).split("").map(Number));
-  // 開啟左右隧道
-  for(let r=9;r<=11;r++){ map[r][0]=0; map[r][COLS-1]=0; }
-  for(let r=13;r<=13;r++){ map[r][0]=0; map[r][COLS-1]=0; }
-  // 製造中央幽靈屋與玩家區
-  for(let c=11;c<=16;c++) map[13][c]=0;
-  for(let c=10;c<=17;c++) map[14][c]=0;
-  for(let c=10;c<=17;c++) map[15][c]=0;
 
   let pellets = [];
   function rebuildPellets(){
@@ -202,12 +247,12 @@
   function resetGame(){
     score=0; tick=0; frightenedUntil=0; requestedDir="left";
     rebuildPellets();
-    player={x:14,y:17,dir:"left",next:"left",mouth:0};
+    player={x:14,y:21,dir:"left",next:"left",mouth:0};
     ghosts=[
-      {x:13,y:14,dir:"left",color:"#ff3b9d",home:{x:13,y:14}},
-      {x:14,y:14,dir:"up",color:"#00e5ff",home:{x:14,y:14}},
-      {x:15,y:14,dir:"right",color:"#ff8b32",home:{x:15,y:14}},
-      {x:16,y:14,dir:"left",color:"#b86cff",home:{x:16,y:14}}
+      {x:12,y:14,dir:"left",color:"#ff3b9d",home:{x:12,y:14}},
+      {x:13,y:14,dir:"up",color:"#00e5ff",home:{x:13,y:14}},
+      {x:14,y:14,dir:"right",color:"#ff8b32",home:{x:14,y:14}},
+      {x:15,y:14,dir:"left",color:"#b86cff",home:{x:15,y:14}}
     ];
     updateScore();
     draw();
@@ -225,7 +270,8 @@
   function canMove(x,y,dir){
     const d=dirs[dir], nx=x+d.x, ny=y+d.y;
     if(ny<0 || ny>=ROWS) return false;
-    if(nx<0 || nx>=COLS) return (ny>=9&&ny<=13);
+    // 允許左右邊界完美穿梭 (Tunnel 邏輯)
+    if(nx<0 || nx>=COLS) return true;
     return map[ny][nx]!==1;
   }
 
@@ -254,7 +300,6 @@
         score += p.power ? 50 : 10;
         if(p.power){
           frightenedUntil=performance.now()+7000;
-          score+=0;
         }
         updateScore();
         if(pellets.length===0) endGame(true);
@@ -394,17 +439,118 @@
     ctx.restore();
   }
 
+  function escapeHtml(value){
+    return String(value)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function showLeaderboard(rows){
+    if(!Array.isArray(rows) || rows.length===0){
+      leaderboardRowsEl.innerHTML='<div class="rankEmpty">目前還沒有成績</div>';
+      return;
+    }
+
+    leaderboardRowsEl.innerHTML=rows.slice(0,10).map((row,index)=>{
+      const name=escapeHtml(row.name || "匿名玩家");
+      const points=Number(row.score)||0;
+      return `
+        <div class="rankRow">
+          <span class="rank">#${index+1}</span>
+          <span class="name">${name}</span>
+          <span class="points">${points.toLocaleString()}</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function loadLeaderboard(){
+    leaderboardRowsEl.innerHTML='<div class="rankEmpty">讀取排行榜中...</div>';
+
+    try{
+      const response=await fetch(LEADERBOARD_API,{method:"GET",cache:"no-store"});
+      if(!response.ok) throw new Error("排行榜伺服器回應錯誤");
+
+      const data=await response.json();
+
+      if(!data.success) throw new Error(data.error || "無法取得排行榜");
+
+      showLeaderboard(data.leaderboard);
+    }catch(error){
+      console.error("Leaderboard GET error:",error);
+      leaderboardRowsEl.innerHTML='<div class="rankEmpty">排行榜暫時無法載入</div>';
+    }
+  }
+
+  async function submitScore(){
+    const name=playerNameEl.value.trim();
+
+    if(!name){
+      submitStatusEl.textContent="請先輸入暱稱。";
+      submitStatusEl.classList.add("error");
+      playerNameEl.focus();
+      return;
+    }
+
+    submitScoreBtn.disabled=true;
+    submitStatusEl.classList.remove("error");
+    submitStatusEl.textContent="正在上傳成績...";
+
+    try{
+      const response=await fetch(LEADERBOARD_API,{
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
+        body:JSON.stringify({
+          name:name,
+          score:score
+        })
+      });
+
+      if(!response.ok) throw new Error("成績伺服器回應錯誤");
+
+      const data=await response.json();
+
+      if(!data.success) throw new Error(data.error || "成績上傳失敗");
+
+      submitStatusEl.textContent="成績已上傳！";
+      scoreForm.classList.add("hidden");
+      await loadLeaderboard();
+
+    }catch(error){
+      console.error("Leaderboard POST error:",error);
+      submitStatusEl.textContent="上傳失敗，請確認 Apps Script 已部署為「任何人可存取」。";
+      submitStatusEl.classList.add("error");
+    }finally{
+      submitScoreBtn.disabled=false;
+    }
+  }
+
   function endGame(won){
     running=false;gameOver=true;
     titleEl.textContent=won?"關卡完成！":"遊戲結束";
     textEl.innerHTML=`本次分數：<strong style="color:#ffe600">${score}</strong><br>最高分：<strong style="color:#00f6ff">${highScore}</strong>`;
+
+    scoreForm.classList.remove("hidden");
+    playerNameEl.value="";
+    submitStatusEl.textContent="";
+    submitStatusEl.classList.remove("error");
     startBtn.textContent="重新開始";
+
     overlay.classList.remove("hidden");
+    loadLeaderboard();
+
+    setTimeout(()=>playerNameEl.focus(),100);
   }
 
   function start(){
     resetGame();
     gameOver=false;running=true;
+    scoreForm.classList.add("hidden");
+    submitStatusEl.textContent="";
+    submitStatusEl.classList.remove("error");
     overlay.classList.add("hidden");
     lastTime=0;
   }
@@ -430,8 +576,17 @@
     btn.addEventListener("pointerdown",e=>{e.preventDefault();setDir(d)});
   });
   startBtn.addEventListener("click",start);
+  submitScoreBtn.addEventListener("click",submitScore);
+
+  playerNameEl.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      e.preventDefault();
+      submitScore();
+    }
+  });
 
   resetGame();
+  loadLeaderboard();
   requestAnimationFrame(loop);
 })();
 </script>
