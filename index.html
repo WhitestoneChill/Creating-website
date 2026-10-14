@@ -393,6 +393,16 @@
       max-width: 620px;
     }
 
+    .hero-actions {
+      margin-top: 30px;
+    }
+
+    .hero-actions .game-button {
+      margin-left: 0;
+      padding: 15px 30px;
+      font-size: 1rem;
+    }
+
     /*
       Profile photo
     */
@@ -1027,29 +1037,21 @@
           <p class="identity">
             大同大學數位媒體設計學系學生，參與遊戲劇情、企劃與程式製作。
           </p>
+          <div class="hero-actions">
+            <a class="game-button" href="game.html">玩我的小遊戲</a>
+          </div>
         </div>
 
         <div class="hero-photo">
           <img
             id="profileImage"
-            src="images/me.jpg"
+            src="image/me.png"
             alt="冰雨"
           >
 
           <div class="photo-placeholder" id="photoPlaceholder">
             尚未提供個人照片
           </div>
-
-          <label class="photo-button" for="photoInput">
-            選擇照片
-          </label>
-
-          <input
-            id="photoInput"
-            class="photo-input"
-            type="file"
-            accept="image/*"
-          >
         </div>
 
       </div>
@@ -1138,12 +1140,6 @@
           聯絡我
         </a>
 
-        <a
-          class="game-button"
-          href="game.html"
-        >
-          玩我的小遊戲
-        </a>
 
       </div>
     </section>
@@ -1172,29 +1168,15 @@
   <script>
     /*
       個人照片：
-      預設使用 images/me.jpg。
-      使用者仍可在首頁自行選取其他照片。
-      選取的照片只會在目前瀏覽器中顯示，不會上傳至任何網站。
+      固定載入與 index.html 同層的 image/me.png。
+      若圖片不存在，顯示文字提示。
     */
-
-    const photoInput = document.getElementById("photoInput");
     const profileImage = document.getElementById("profileImage");
     const photoPlaceholder = document.getElementById("photoPlaceholder");
 
-    photoInput.addEventListener("change", function () {
-      const file = this.files[0];
-
-      if (!file) return;
-
-      const reader = new FileReader();
-
-      reader.onload = function (event) {
-        profileImage.src = event.target.result;
-        profileImage.style.display = "block";
-        photoPlaceholder.style.display = "none";
-      };
-
-      reader.readAsDataURL(file);
+    profileImage.addEventListener("error", function () {
+      profileImage.style.display = "none";
+      photoPlaceholder.style.display = "block";
     });
   </script>
 

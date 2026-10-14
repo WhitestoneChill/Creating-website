@@ -247,12 +247,12 @@
   function resetGame(){
     score=0; tick=0; frightenedUntil=0; requestedDir="left";
     rebuildPellets();
-    player={x:14,y:21,dir:"left",next:"left",mouth:0};
+    player={x:14,y:21,dir:"left",next:"left",mouth:0, prevX:14, prevY:21};
     ghosts=[
-      {x:12,y:14,dir:"left",color:"#ff3b9d",home:{x:12,y:14}},
-      {x:13,y:14,dir:"up",color:"#00e5ff",home:{x:13,y:14}},
-      {x:14,y:14,dir:"right",color:"#ff8b32",home:{x:14,y:14}},
-      {x:15,y:14,dir:"left",color:"#b86cff",home:{x:15,y:14}}
+      {x:12,y:14,dir:"left",color:"#ff3b9d",home:{x:12,y:14}, prevX:12, prevY:14},
+      {x:13,y:14,dir:"up",color:"#00e5ff",home:{x:13,y:14}, prevX:13, prevY:14},
+      {x:14,y:14,dir:"right",color:"#ff8b32",home:{x:14,y:14}, prevX:14, prevY:14},
+      {x:15,y:14,dir:"left",color:"#b86cff",home:{x:15,y:14}, prevX:15, prevY:14}
     ];
     updateScore();
     draw();
@@ -276,6 +276,8 @@
   }
 
   function moveEntity(e){
+    e.prevX = e.x;
+    e.prevY = e.y;
     if(!canMove(e.x,e.y,e.dir)){
       if(e===player && canMove(e.x,e.y,e.next)) e.dir=e.next;
       else if(e!==player){
@@ -335,10 +337,14 @@
 
   function collision(){
     for(const g of ghosts){
-      if(g.x===player.x && g.y===player.y){
+      // 檢查是否同格，或是否在移動過程中交錯（互換位置）
+      const sameCell = (g.x === player.x && g.y === player.y);
+      const swapped = (g.x === player.prevX && g.y === player.prevY && g.prevX === player.x && g.prevY === player.y);
+
+      if(sameCell || swapped){
         if(frightenedUntil>performance.now()){
           score+=200; updateScore();
-          g.x=g.home.x; g.y=g.home.y; g.dir="up";
+          g.x=g.home.x; g.y=g.home.y; g.prevX=g.home.x; g.prevY=g.home.y; g.dir="up";
         }else{
           endGame(false); return;
         }
