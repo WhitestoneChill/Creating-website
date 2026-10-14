@@ -16,8 +16,11 @@
     --text:#d9fbff;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Courier New",monospace}
-  body{display:flex;justify-content:center;overflow-x:hidden}
+  
+  /* 鎖定全螢幕高度與寬度，嚴禁捲動 */
+  html,body{margin:0;width:100vw;height:100vh;background:var(--bg);color:var(--text);font-family:"Courier New",monospace;overflow:hidden;}
+  body{display:flex;justify-content:center;align-items:center}
+  
   body::before{
     content:"";position:fixed;inset:0;pointer-events:none;z-index:20;
     background:repeating-linear-gradient(to bottom,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 2px,transparent 4px);
@@ -27,86 +30,130 @@
     content:"";position:fixed;inset:0;pointer-events:none;z-index:21;
     box-shadow:inset 0 0 100px rgba(0,255,255,.06),inset 0 0 35px rgba(0,0,0,.8);
   }
-  .wrap{width:min(760px,100%);padding:14px 14px 28px}
+
+  /* 放大 .wrap 佔滿整個可用視窗，並讓內容完美均分延展 */
+  .wrap{
+    width: min(850px, 98vw);
+    height: 100vh;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    align-items: center;
+  }
+  
   .home{
     display:inline-block;color:var(--cyan);text-decoration:none;font-weight:bold;
-    font-size:14px;margin:2px 0 12px;text-shadow:0 0 8px var(--cyan)
+    font-size:14px;margin:0;text-shadow:0 0 8px var(--cyan);align-self:flex-start;
   }
   .home:hover{color:#fff}
-  header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:10px}
-  h1{font-size:clamp(22px,5vw,36px);margin:0;color:var(--yellow);letter-spacing:2px;text-shadow:0 0 7px #ff0,0 0 18px #f90}
-  .sub{font-size:11px;color:#6fb8bd;letter-spacing:1px}
+  
+  header{display:flex;justify-content:space-between;align-items:end;margin:0;width:100%}
+  h1{font-size:clamp(20px, 3.5vw, 32px);margin:0;color:var(--yellow);letter-spacing:2px;text-shadow:0 0 7px #ff0,0 0 18px #f90}
+  .sub{font-size:10px;color:#6fb8bd;letter-spacing:1px}
+  
   .hud{
-    display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0;width:100%
   }
   .hudBox{
     border:1px solid #164a52;background:linear-gradient(180deg,#07141b,#03090e);
-    padding:8px 10px;box-shadow:0 0 12px rgba(0,246,255,.08) inset
+    padding:6px 12px;box-shadow:0 0 12px rgba(0,246,255,.08) inset
   }
   .label{display:block;font-size:10px;color:#5eaeb4;letter-spacing:1px}
   .value{font-size:20px;color:#fff;text-shadow:0 0 8px var(--cyan)}
   #score{color:var(--yellow);text-shadow:0 0 8px #ff0}
+
+  /* 遊戲外殼：利用 vh 讓遊戲畫布放大到極致，剛好佔滿畫面中心而不溢出 */
   .gameShell{
     position:relative;border:2px solid var(--cyan);background:#000;
-    box-shadow:0 0 8px var(--cyan),0 0 30px rgba(0,246,255,.15);
-    padding:7px;border-radius:3px
+    box-shadow:0 0 10px var(--cyan),0 0 30px rgba(0,246,255,.15);
+    padding:4px;border-radius:4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-height: 62vh;
   }
-  canvas{display:block;width:100%;height:auto;background:#000;image-rendering:pixelated}
+  
+  /* 畫布自動依據高度最大化放大 */
+  canvas{
+    display:block;
+    height: 60vh;
+    max-width: 100%;
+    width: auto;
+    background:#000;
+    image-rendering:pixelated;
+  }
+  
   .overlay{
-    position:absolute;inset:7px;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.78);backdrop-filter:blur(2px);z-index:5;text-align:center
+    position:absolute;inset:4px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.86);backdrop-filter:blur(2px);z-index:5;text-align:center;
+    overflow:hidden;
   }
   .overlay.hidden{display:none}
-  .card{padding:25px 18px;max-width:90%;border:1px solid #2a646b;background:rgba(2,10,14,.92);box-shadow:0 0 22px rgba(0,246,255,.15)}
-  .card h2{margin:0 0 12px;color:var(--pink);font-size:clamp(24px,7vw,42px);text-shadow:0 0 10px var(--pink)}
-  .card p{margin:7px 0;color:#9fd8dc;font-size:13px;line-height:1.7}
+  
+  .card{
+    padding:14px 20px;width:min(450px, 95%);max-height:100%;
+    overflow:hidden;border:1px solid #2a646b;background:rgba(2,10,14,.96);
+    box-shadow:0 0 22px rgba(0,246,255,.15);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .card h2{margin:0 0 6px;color:var(--pink);font-size:clamp(20px, 4vw, 30px);text-shadow:0 0 10px var(--pink)}
+  .card p{margin:4px 0;color:#9fd8dc;font-size:12px;line-height:1.4}
+  
   button{
     font:inherit;font-weight:bold;color:#001014;background:var(--cyan);border:0;
-    padding:11px 18px;margin-top:13px;cursor:pointer;
-    box-shadow:0 0 10px rgba(0,246,255,.7);border-radius:2px
+    padding:8px 18px;margin-top:6px;cursor:pointer;
+    box-shadow:0 0 10px rgba(0,246,255,.7);border-radius:2px;font-size:13px;
   }
   button:active{transform:translateY(1px);filter:brightness(1.25)}
+  
   .touch{
-    display:none;margin:13px auto 0;width:min(270px,80vw);
+    display:none;margin:0 auto;width:min(260px, 80vw);
     user-select:none;touch-action:none
   }
-  .touchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .touchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .touch button{
-    margin:0;height:58px;padding:0;font-size:25px;background:#061820;color:var(--cyan);
+    margin:0;height:50px;padding:0;font-size:20px;background:#061820;color:var(--cyan);
     border:1px solid #157783;box-shadow:0 0 9px rgba(0,246,255,.16);text-shadow:0 0 8px var(--cyan)
   }
   .touch .blank{visibility:hidden}
-  .help{text-align:center;color:#416c70;font-size:10px;margin-top:10px}
-  .scoreForm{margin-top:14px}
-  .scoreForm label{display:block;font-size:10px;color:#5eaeb4;letter-spacing:1px;margin-bottom:6px}
+  .help{text-align:center;color:#416c70;font-size:10px;margin:0}
+  
+  .scoreForm{margin-top:4px;width:100%}
+  .scoreForm label{display:block;font-size:9px;color:#5eaeb4;letter-spacing:1px;margin-bottom:2px}
   .scoreForm input{
-    width:min(250px,100%);padding:10px 11px;
+    width:min(220px,100%);padding:6px 10px;
     font:inherit;font-weight:bold;color:var(--text);
     background:#03090e;border:1px solid #157783;outline:none;
     box-shadow:0 0 9px rgba(0,246,255,.12) inset;
-    text-align:center;
+    text-align:center;font-size:12px;
   }
   .scoreForm input:focus{border-color:var(--cyan);box-shadow:0 0 10px rgba(0,246,255,.3)}
-  .scoreForm button{margin-top:9px}
-  .status{min-height:18px;font-size:11px;color:#6fb8bd;margin-top:8px}
+  .scoreForm button{margin-top:4px}
+  .status{min-height:15px;font-size:10px;color:#6fb8bd;margin-top:2px}
   .status.error{color:#ff6b9f}
+  
   .leaderboard{
-    margin-top:14px;border-top:1px solid #164a52;padding-top:10px;
-    text-align:left
+    margin-top:6px;border-top:1px solid #164a52;padding-top:6px;
+    text-align:left;width:100%;max-height:120px;overflow:hidden;
   }
   .leaderboard h3{
-    margin:0 0 8px;color:var(--cyan);font-size:14px;
-    text-shadow:0 0 8px var(--cyan);letter-spacing:1px
+    margin:0 0 4px;color:var(--cyan);font-size:12px;
+    text-shadow:0 0 8px var(--cyan);letter-spacing:1px;text-align:center;
+  }
+  #leaderboardRows {
+    max-height:90px;overflow:hidden;
   }
   .rankRow{
-    display:grid;grid-template-columns:34px 1fr 80px;gap:7px;
-    padding:4px 5px;border-bottom:1px solid rgba(22,74,82,.45);
-    font-size:11px
+    display:grid;grid-template-columns:28px 1fr 70px;gap:4px;
+    padding:2px 4px;border-bottom:1px solid rgba(22,74,82,.45);
+    font-size:10px
   }
   .rankRow .rank{color:#5eaeb4}
   .rankRow .name{color:#d9fbff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rankRow .points{color:var(--yellow);text-align:right}
-  .rankEmpty{font-size:11px;color:#416c70;text-align:center;padding:5px}
+  .rankEmpty{font-size:10px;color:#416c70;text-align:center;padding:3px}
+
   @media (pointer:coarse),(max-width:700px){.touch{display:block}}
   @media (min-width:701px){.touch{display:none}}
 </style>
