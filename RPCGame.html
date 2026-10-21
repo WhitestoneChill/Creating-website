@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>極光猜拳對決 - Aurora RPS Multiplayer</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Firebase Compatibility SDKs (v9/v10 compatible bundle via CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            aurora: {
+              bg: '#080C19',
+              card: 'rgba(15, 23, 42, 0.65)',
+              cyan: '#00F2FE',
+              purple: '#9D50BB',
+              emerald: '#00F5A0',
+              accent: '#4FACFE'
+            }
+          },
+          animation: {
+            'aurora-glow': 'auroraShift 12s ease infinite alternate',
+            'float': 'float 3s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 2s infinite',
+          },
+          keyframes: {
+            auroraShift: {
+              '0%': { backgroundPosition: '0% 50%' },
+              '50%': { backgroundPosition: '100% 50%' },
+              '100%': { backgroundPosition: '0% 50%' }
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-8px)' }
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 15px rgba(0,242,254,0.4)' },
+              '50%': { boxShadow: '0 0 30px rgba(0,242,254,0.8)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Aurora Gradient & Custom Styling */
+    body {
+      background: #080c19;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+
+    .aurora-bg {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: -1;
+      background: linear-gradient(-45deg, #080c19, #0f172a, #132a45, #220b38, #0a3a32);
+      background-size: 400% 400%;
+      animation: auroraShift 14s ease infinite alternate;
+    }
+
+    .aurora-blob {
+      position: absolute;
+      filter: blur(80px);
+      border-radius: 50%;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-btn {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s ease-in-out;
+    }
+
+    .glass-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+  </style>
+</head>
+
+<body class="flex flex-col min-h-screen justify-between relative select-none">
+  <!-- Aurora Dynamic Background Blobs -->
+  <div class="aurora-bg"></div>
+  <div class="aurora-blob bg-cyan-500 w-72 h-72 top-[-50px] left-[-50px]"></div>
+  <div class="aurora-blob bg-purple-600 w-80 h-80 bottom-[-80px] right-[-80px]"></div>
+  <div class="aurora-blob bg-emerald-500 w-64 h-64 top-[40%] left-[50%] -translate-x-1/2"></div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm pointer-events-none"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="w-full max-w-2xl mx-auto p-4 flex justify-between items-center z-10">
+    <div class="flex items-center gap-2">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-purple-500 to-emerald-400 p-[2px]">
+        <div class="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
+          <span class="text-xl">🌌</span>
+        </div>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-300 to-emerald-300 text-lg sm:text-xl leading-tight">
+          極光猜拳
+        </h1>
+        <p class="text-[10px] text-cyan-200/70 tracking-wider uppercase">Aurora RPS Online</p>
+      </div>
+    </div>
+
+    <!-- Mute/Unmute Audio Toggle Button -->
+    <button id="audio-toggle-btn" class="glass-btn px-3 py-2 rounded-xl text-slate-300 hover:text-white flex items-center gap-1.5 text-xs">
+      <i id="audio-icon" class="fas fa-volume-up text-cyan-400"></i>
+      <span id="audio-label">音效開</span>
+    </button>
+  </header>
+
+  <!-- Main Game Container -->
+  <main class="w-full max-w-lg mx-auto px-4 my-auto py-2 z-10">
+
+    <!-- Firebase Unconfigured Warning Banner (if no valid config paste detected) -->
+    <div id="firebase-warning" class="hidden glass-card border-amber-500/40 p-4 rounded-2xl mb-4 text-amber-200 text-xs sm:text-sm">
+      <div class="flex gap-2 items-start">
+        <i class="fas fa-exclamation-triangle text-amber-400 text-lg mt-0.5"></i>
+        <div>
+          <strong class="block text-white mb-1">未偵測到 Firebase 設定檔</strong>
+          請打開本 HTML 檔案，搜尋 <code class="bg-black/40 px-1 py-0.5 rounded text-cyan-300">firebaseConfig</code> 填入您的 Firebase Realtime Database 金鑰即可啟用全網連線！
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 1: LOGIN / ROOM SELECTION -->
+    <section id="lobby-section" class="glass-card rounded-3xl p-6 sm:p-8 transition-all duration-300">
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-bold text-white mb-1">進入極光對決</h2>
+        <p class="text-xs text-slate-400">支援 2 ~ 3 人線上同樂猜拳遊戲</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Player Nickname Input -->
+        <div>
+          <label class="block text-xs font-semibold text-cyan-300 mb-1.5 uppercase tracking-wide">您的暱稱</label>
+          <div class="relative">
+            <i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="player-name-input" maxlength="10" placeholder="請輸入暱稱..." 
+                   class="w-full pl-11 pr-4 py-3 bg-slate-900/60 border border-slate-700/80 rounded-2xl focus:outline-none focus:border-cyan-400 text-white placeholder-slate-500 transition-all">
+          </div>
+        </div>
+
+        <hr class="border-slate-800 my-2">
+
+        <!-- Room Action Tabs -->
+        <div class="grid grid-cols-2 gap-3">
+          <button id="btn-tab-create" onclick="switchTab('create')" class="py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 transition-all">
+            <i class="fas fa-plus-circle mr-1"></i> 建立 4 位數房間
+          </button>
+          <button id="btn-tab-join" onclick="switchTab('join')" class="py-3 px-4 rounded-2xl font-bold text-sm glass-btn text-slate-300 hover:text-white transition-all">
+            <i class="fas fa-sign-in-alt mr-1"></i> 加入已有房間
+          </button>
+        </div>
+
+        <!-- TAB CONTENT 1: CREATE ROOM -->
+        <div id="tab-create-content" class="space-y-3 pt-2">
+          <div class="flex items-center justify-between bg-slate-900/40 p-3 rounded-2xl border border-slate-800">
+            <span class="text-xs text-slate-400">系統將自動產生 4 位數房號</span>
+            <span id="preview-room-code" class="font-mono text-lg font-bold text-cyan-400 tracking-widest">????</span>
+          </div>
+          <button onclick="handleCreateRoom()" class="w-full py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 text-slate-950 shadow-lg shadow-emerald-500/30 hover:opacity-95 active:scale-98 transition-all">
+            立即開房並進入
+          </button>
+        </div>
+
+        <!-- TAB CONTENT 2: JOIN ROOM -->
+        <div id="tab-join-content" class="space-y-3 pt-2 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-purple-300 mb-1.5 uppercase tracking-wide">輸入 4 位數房號</label>
+            <div class="relative">
+              <i class="fas fa-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input type="number" id="room-code-input" pattern="\d*" maxlength="4" placeholder="例如: 8888" 
+                     class="w-full pl-11 pr-4 py-3 bg-slate-900/60 border border-slate-700/80 rounded-2xl focus:outline-none focus:border-purple-400 text-white font-mono tracking-widest placeholder-slate-600 transition-all">
+            </div>
+          </div>
+          <button onclick="handleJoinRoom()" class="w-full py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-lg shadow-purple-500/30 hover:opacity-95 active:scale-98 transition-all">
+            加入遊戲房間
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: GAME ROOM ARENA -->
+    <section id="game-section" class="hidden space-y-4">
+
+      <!-- Room Header Info Bar -->
+      <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">房間號碼</span>
+            <span id="display-room-code" class="font-mono text-xl font-black text-cyan-300 tracking-widest">----</span>
+            <button onclick="copyRoomCode()" class="text-xs text-cyan-400/80 hover:text-cyan-300 bg-cyan-950/60 px-2 py-1 rounded-lg border border-cyan-800">
+              <i class="fas fa-copy mr-1"></i>複製
+            </button>
+          </div>
+          <p id="room-status-text" class="text-xs text-emerald-400 mt-0.5">等待其他玩家加入 (2~3人)...</p>
+        </div>
+        <button onclick="leaveRoom()" class="px-3 py-2 rounded-xl text-xs glass-btn text-rose-300 border-rose-500/30 hover:bg-rose-950/40">
+          <i class="fas fa-door-open mr-1"></i>離開
+        </button>
+      </div>
+
+      <!-- Player List Arena Grid -->
+      <div id="players-container" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <!-- Player Slots will be dynamically populated here -->
+      </div>
+
+      <!-- Round Result Display Box -->
+      <div id="result-box" class="glass-card rounded-2xl p-5 text-center hidden transform transition-all duration-300 border-2 border-cyan-400/40">
+        <span id="result-badge" class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 mb-2">
+          對決結果
+        </span>
+        <h3 id="result-title" class="text-2xl font-black text-white mb-1">平局！</h3>
+        <p id="result-detail" class="text-xs text-slate-300 mb-4">所有人出招相同</p>
+
+        <!-- Host or Synchronized Restart Button -->
+        <button id="next-round-btn" onclick="startNextRound()" class="py-3 px-6 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-emerald-400 to-cyan-500 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+          <i class="fas fa-redo mr-1.5"></i> 再來一局
+        </button>
+      </div>
+
+      <!-- Action Choice Panel (Large Phone-friendly buttons) -->
+      <div id="choice-panel" class="glass-card rounded-3xl p-5 text-center space-y-3">
+        <div class="flex items-center justify-between px-2">
+          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">選擇您的出招</span>
+          <span id="choice-timer" class="text-xs text-cyan-300 font-mono">請出招...</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 pt-1">
+          <!-- Rock -->
+          <button onclick="makeChoice('rock')" id="btn-rock" class="choice-btn group glass-btn border-cyan-500/30 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 hover:border-cyan-400 active:scale-90 transition-all">
+            <span class="text-4xl sm:text-5xl group-hover:scale-110 transition-transform">✊</span>
+            <span class="text-xs font-extrabold text-slate-200">石頭</span>
+          </button>
+
+          <!-- Paper -->
+          <button onclick="makeChoice('paper')" id="btn-paper" class="choice-btn group glass-btn border-purple-500/30 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 hover:border-purple-400 active:scale-90 transition-all">
+            <span class="text-4xl sm:text-5xl group-hover:scale-110 transition-transform">🖐️</span>
+            <span class="text-xs font-extrabold text-slate-200">布</span>
+          </button>
+
+          <!-- Scissors -->
+          <button onclick="makeChoice('scissors')" id="btn-scissors" class="choice-btn group glass-btn border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 hover:border-emerald-400 active:scale-90 transition-all">
+            <span class="text-4xl sm:text-5xl group-hover:scale-110 transition-transform">✌️</span>
+            <span class="text-xs font-extrabold text-slate-200">剪刀</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full text-center py-4 text-[11px] text-slate-500 z-10">
+    Aurora Rock-Paper-Scissors Online • 支援 2-3 人連線對決
+  </footer>
+
+  <!-- JAVASCRIPT GAME LOGIC -->
+  <script>
+    // =========================================================================
+    // 🔑 Firebase 設定檔 (已自動帶入您的專屬設定)
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBiQICWPS7pBZNypc6yUxT4JJsGIlxoBck",
+      authDomain: "rps-4-3dace.firebaseapp.com",
+      databaseURL: "https://rps-4-3dace-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "rps-4-3dace",
+      storageBucket: "rps-4-3dace.firebasestorage.app",
+      messagingSenderId: "358850992705",
+      appId: "1:358850992705:web:71778d15a8e5e4bfa504c0"
+    };
+    // =========================================================================
+
+    // State Variables
+    let db = null;
+    let roomRef = null;
+    let playerRef = null;
+    let currentRoomCode = null;
+    let myPlayerId = 'p_' + Math.random().toString(36).substr(2, 7);
+    let myNickname = '';
+    let isAudioMuted = false;
+    let currentRoomData = null;
+    let generatedCreateCode = '';
+
+    // Initialize Page on Load
+    window.onload = function() {
+      initFirebase();
+      generateRandomCreateCode();
+      restoreSavedNickname();
+      setupAudioToggle();
+    };
+
+    function generateRandomCreateCode() {
+      generatedCreateCode = Math.floor(1000 + Math.random() * 9000).toString();
+      const elem = document.getElementById('preview-room-code');
+      if (elem) elem.innerText = generatedCreateCode;
+    }
+
+    function restoreSavedNickname() {
+      const saved = localStorage.getItem('aurora_rps_name');
+      if (saved) {
+        document.getElementById('player-name-input').value = saved;
+      }
+    }
+
+    // Initialize Firebase Realtime Database
+    function initFirebase() {
+      const warningBanner = document.getElementById('firebase-warning');
+      
+      // Basic check if user replaced default config placeholder
+      if (!firebaseConfig.databaseURL || firebaseConfig.databaseURL.includes("YOUR_DATABASE_URL")) {
+        warningBanner.classList.remove('hidden');
+        console.warn("Firebase Config missing or incomplete. Please paste valid config into firebaseConfig.");
+        return false;
+      }
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.database();
+        warningBanner.classList.add('hidden');
+        return true;
+      } catch (err) {
+        console.error("Firebase Init Error:", err);
+        warningBanner.classList.remove('hidden');
+        return false;
+      }
+    }
+
+    // Tab Switching Logic
+    function switchTab(tab) {
+      playSfx('click');
+      const createBtn = document.getElementById('btn-tab-create');
+      const joinBtn = document.getElementById('btn-tab-join');
+      const createContent = document.getElementById('tab-create-content');
+      const joinContent = document.getElementById('tab-join-content');
+
+      if (tab === 'create') {
+        createBtn.className = "py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 transition-all";
+        joinBtn.className = "py-3 px-4 rounded-2xl font-bold text-sm glass-btn text-slate-300 hover:text-white transition-all";
+        createContent.classList.remove('hidden');
+        joinContent.classList.add('hidden');
+        generateRandomCreateCode();
+      } else {
+        joinBtn.className = "py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/25 transition-all";
+        createBtn.className = "py-3 px-4 rounded-2xl font-bold text-sm glass-btn text-slate-300 hover:text-white transition-all";
+        joinContent.classList.remove('hidden');
+        createContent.classList.add('hidden');
+      }
+    }
+
+    // Get Player Name Input
+    function getNickname() {
+      const val = document.getElementById('player-name-input').value.trim();
+      if (!val) {
+        showToast('請先輸入您的暱稱！', 'warning');
+        return null;
+      }
+      localStorage.setItem('aurora_rps_name', val);
+      return val;
+    }
+
+    // Create Room Logic
+    function handleCreateRoom() {
+      if (!db && !initFirebase()) {
+        showToast('請先在 HTML 設定檔貼上 Firebase 資料數據庫金鑰！', 'error');
+        return;
+      }
+      myNickname = getNickname();
+      if (!myNickname) return;
+
+      currentRoomCode = generatedCreateCode;
+      joinOrCreateRoomDatabase(currentRoomCode, true);
+    }
+
+    // Join Room Logic
+    function handleJoinRoom() {
+      if (!db && !initFirebase()) {
+        showToast('請先在 HTML 設定檔貼上 Firebase 資料數據庫金鑰！', 'error');
+        return;
+      }
+      myNickname = getNickname();
+      if (!myNickname) return;
+
+      const code = document.getElementById('room-code-input').value.trim();
+      if (code.length !== 4) {
+        showToast('請輸入 4 位數字房號！', 'warning');
+        return;
+      }
+      currentRoomCode = code;
+      joinOrCreateRoomDatabase(currentRoomCode, false);
+    }
+
+    // Database Connection & Listener
+    function joinOrCreateRoomDatabase(roomCode, isCreating) {
+      roomRef = db.ref('rps_rooms/' + roomCode);
+
+      roomRef.get().then((snapshot) => {
+        const roomData = snapshot.val();
+
+        if (isCreating && roomData && roomData.players && Object.keys(roomData.players).length > 0) {
+          // Room already exists when trying to create
+          generateRandomCreateCode();
+          showToast('該房號已被佔用，重新產生新房號', 'info');
+          return;
+        }
+
+        if (!isCreating && (!roomData || !roomData.players)) {
+          showToast('找不到該房間，請確認房號！', 'error');
+          return;
+        }
+
+        const existingPlayers = roomData && roomData.players ? roomData.players : {};
+        const playerKeys = Object.keys(existingPlayers);
+
+        if (playerKeys.length >= 3 && !existingPlayers[myPlayerId]) {
+          showToast('該房間人數已滿 (最多 3 人)！', 'error');
+          return;
+        }
+
+        // Add self to player list
+        playerRef = db.ref(`rps_rooms/${roomCode}/players/${myPlayerId}`);
+        playerRef.set({
+          id: myPlayerId,
+          name: myNickname,
+          choice: null,
+          score: 0,
+          joinedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Set disconnect listener
+        playerRef.onDisconnect().remove();
+
+        // If room is new, set initial status
+        if (!roomData) {
+          roomRef.update({
+            code: roomCode,
+            status: 'waiting',
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
+
+        // Enter Game Arena UI
+        document.getElementById('lobby-section').classList.add('hidden');
+        document.getElementById('game-section').classList.remove('hidden');
+        document.getElementById('display-room-code').innerText = roomCode;
+
+        playSfx('join');
+        listenToRoomUpdates();
+      }).catch((err) => {
+        console.error("Room Access Error: ", err);
+        showToast('連線失敗: ' + err.message, 'error');
+      });
+    }
+
+    // Listen to Firebase Room Snapshot Updates
+    function listenToRoomUpdates() {
+      roomRef.on('value', (snapshot) => {
+        const room = snapshot.val();
+        if (!room || !room.players) {
+          showToast('房間已關閉或無效', 'info');
+          leaveRoom();
+          return;
+        }
+
+        currentRoomData = room;
+        const players = room.players;
+        const playerList = Object.values(players);
+
+        renderPlayers(playerList, room.status);
+        checkAndEvaluateGame(room, playerList);
+      });
+    }
+
+    // Render Players in UI Grid
+    function renderPlayers(players, roomStatus) {
+      const container = document.getElementById('players-container');
+      container.innerHTML = '';
+
+      const count = players.length;
+      document.getElementById('room-status-text').innerText = 
+        count < 2 ? '等待其他玩家加入 (已進入 1/3)...' : `當前線上人數: ${count} 人`;
+
+      players.forEach((p) => {
+        const isMe = p.id === myPlayerId;
+        const hasChosen = p.choice !== null && p.choice !== undefined;
+
+        // Choice Icon Mapping
+        const choiceMap = {
+          'rock': '✊',
+          'paper': '🖐️',
+          'scissors': '✌️'
+        };
+
+        let choiceDisplay = '❓';
+        let statusBadge = '<span class="text-[10px] text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-800">思考中...</span>';
+
+        if (roomStatus === 'revealed') {
+          choiceDisplay = choiceMap[p.choice] || '❓';
+          if (p.isWinner) {
+            statusBadge = '<span class="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/50">🎉 本局贏家</span>';
+          } else if (p.isDraw) {
+            statusBadge = '<span class="text-[10px] text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md">平局</span>';
+          } else {
+            statusBadge = '<span class="text-[10px] text-rose-300 bg-rose-950/60 px-2 py-0.5 rounded-md">落敗</span>';
+          }
+        } else if (hasChosen) {
+          choiceDisplay = '🔒';
+          statusBadge = '<span class="text-[10px] text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-500/50">已準備</span>';
+        }
+
+        const cardHtml = `
+          <div class="glass-card rounded-2xl p-4 flex flex-col items-center relative overflow-hidden transition-all duration-300 ${isMe ? 'border-2 border-cyan-400/60' : ''}">
+            ${isMe ? '<span class="absolute top-2 left-2 text-[9px] bg-cyan-500 text-slate-950 px-1.5 py-0.5 rounded font-black">你</span>' : ''}
+            
+            <div class="w-14 h-14 rounded-2xl bg-slate-900/80 flex items-center justify-center text-2xl my-1 shadow-inner border border-slate-700/50">
+              ${choiceDisplay}
+            </div>
+
+            <div class="text-center w-full mt-1">
+              <div class="font-bold text-sm text-white truncate max-w-[100px] mx-auto">${escapeHtml(p.name)}</div>
+              <div class="text-[11px] text-cyan-300 font-mono mt-0.5">勝分: ${p.score || 0}</div>
+            </div>
+
+            <div class="mt-2">
+              ${statusBadge}
+            </div>
+          </div>
+        `;
+        container.innerHTML += cardHtml;
+      });
+
+      // Update Choice Panel State
+      const myData = players.find(p => p.id === myPlayerId);
+      const choiceButtons = document.querySelectorAll('.choice-btn');
+      
+      if (myData && myData.choice && roomStatus !== 'revealed') {
+        document.getElementById('choice-timer').innerText = '已出招，等待他人...';
+        choiceButtons.forEach(btn => {
+          btn.classList.add('opacity-50', 'pointer-events-none');
+        });
+      } else if (roomStatus !== 'revealed') {
+        document.getElementById('choice-timer').innerText = '請選擇手勢...';
+        choiceButtons.forEach(btn => {
+          btn.classList.remove('opacity-50', 'pointer-events-none');
+        });
+      }
+    }
+
+    // Make RPS Gesture Choice
+    function makeChoice(choice) {
+      if (!playerRef) return;
+      playSfx('select');
+      playerRef.update({ choice: choice });
+    }
+
+    // Check if all players in room submitted choices & Evaluate Rules
+    function checkAndEvaluateGame(room, players) {
+      if (players.length < 2) return;
+
+      const allChosen = players.every(p => p.choice !== null && p.choice !== undefined);
+
+      if (allChosen && room.status !== 'revealed') {
+        // Evaluate RPS Game Logic
+        const winners = calculateRPSWinners(players);
+
+        // Update database with reveal state
+        const updates = {};
+        updates[`rps_rooms/${currentRoomCode}/status`] = 'revealed';
+
+        players.forEach(p => {
+          const isWinner = winners.includes(p.id);
+          const isDraw = winners.length === 0;
+          updates[`rps_rooms/${currentRoomCode}/players/${p.id}/isWinner`] = isWinner;
+          updates[`rps_rooms/${currentRoomCode}/players/${p.id}/isDraw`] = isDraw;
+
+          if (isWinner) {
+            updates[`rps_rooms/${currentRoomCode}/players/${p.id}/score`] = (p.score || 0) + 1;
+          }
+        });
+
+        roomRef.update(updates);
+        showResultDisplay(winners, players);
+      } else if (room.status === 'revealed') {
+        const winners = players.filter(p => p.isWinner).map(p => p.id);
+        showResultDisplay(winners, players);
+      } else {
+        document.getElementById('result-box').classList.add('hidden');
+      }
+    }
+
+    // Standard 2 to 3 Player RPS Rules Algorithm
+    function calculateRPSWinners(players) {
+      const choices = players.map(p => p.choice);
+      const uniqueChoices = Array.from(new Set(choices));
+
+      // 1. All same choices or all 3 different choices = DRAW
+      if (uniqueChoices.length === 1 || uniqueChoices.length === 3) {
+        return []; // Empty array means Draw
+      }
+
+      // 2. Exactly 2 distinct choices present
+      let winningChoice = '';
+      if (uniqueChoices.includes('rock') && uniqueChoices.includes('scissors')) {
+        winningChoice = 'rock';
+      } else if (uniqueChoices.includes('scissors') && uniqueChoices.includes('paper')) {
+        winningChoice = 'scissors';
+      } else if (uniqueChoices.includes('paper') && uniqueChoices.includes('rock')) {
+        winningChoice = 'paper';
+      }
+
+      // Return IDs of all players who picked the winning choice
+      return players.filter(p => p.choice === winningChoice).map(p => p.id);
+    }
+
+    // Show Result Box and Trigger Celebration FX
+    function showResultDisplay(winnerIds, players) {
+      const resultBox = document.getElementById('result-box');
+      const resultTitle = document.getElementById('result-title');
+      const resultDetail = document.getElementById('result-detail');
+      const resultBadge = document.getElementById('result-badge');
+
+      resultBox.classList.remove('hidden');
+
+      if (winnerIds.length === 0) {
+        // Draw
+        resultBadge.innerText = '對決結果';
+        resultBadge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 mb-2';
+        resultTitle.innerText = '🤝 平局！';
+        resultTitle.className = 'text-2xl font-black text-slate-200 mb-1';
+        resultDetail.innerText = players.length === 3 ? '三人組合導致平局' : '雙方出招相同';
+        playSfx('draw');
+      } else {
+        const winnerNames = players.filter(p => winnerIds.includes(p.id)).map(p => p.name).join(', ');
+        const isMeWinner = winnerIds.includes(myPlayerId);
+
+        if (isMeWinner) {
+          resultBadge.innerText = '🏆 勝利！';
+          resultBadge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 mb-2';
+          resultTitle.innerText = '🎉 恭喜您贏得本局！';
+          resultTitle.className = 'text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-cyan-300 mb-1';
+          resultDetail.innerText = `贏家：${winnerNames}`;
+          triggerConfetti();
+          playSfx('win');
+        } else {
+          resultBadge.innerText = '局數結束';
+          resultBadge.className = 'inline-block px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 mb-2';
+          resultTitle.innerText = '👑 勝者出爐！';
+          resultTitle.className = 'text-2xl font-black text-purple-200 mb-1';
+          resultDetail.innerText = `贏家為：${winnerNames}`;
+          playSfx('lose');
+        }
+      }
+    }
+
+    // Reset choices for Next Round
+    function startNextRound() {
+      if (!roomRef || !currentRoomData) return;
+      playSfx('click');
+
+      const updates = {};
+      updates[`rps_rooms/${currentRoomCode}/status`] = 'playing';
+
+      Object.keys(currentRoomData.players).forEach(pId => {
+        updates[`rps_rooms/${currentRoomCode}/players/${pId}/choice`] = null;
+        updates[`rps_rooms/${currentRoomCode}/players/${pId}/isWinner`] = false;
+        updates[`rps_rooms/${currentRoomCode}/players/${pId}/isDraw`] = false;
+      });
+
+      roomRef.update(updates);
+    }
+
+    // Leave Room Logic
+    function leaveRoom() {
+      if (playerRef) {
+        playerRef.remove();
+        playerRef = null;
+      }
+      if (roomRef) {
+        roomRef.off();
+        roomRef = null;
+      }
+
+      currentRoomCode = null;
+      currentRoomData = null;
+
+      document.getElementById('game-section').classList.add('hidden');
+      document.getElementById('lobby-section').classList.remove('hidden');
+      generateRandomCreateCode();
+      playSfx('click');
+    }
+
+    // Copy Room Code to Clipboard
+    function copyRoomCode() {
+      if (!currentRoomCode) return;
+      const text = currentRoomCode;
+      
+      const tempInput = document.createElement('input');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast(`房號 ${text} 已複製到剪貼簿！`, 'success');
+        playSfx('click');
+      } catch (err) {
+        showToast('複製失敗', 'error');
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    // Canvas Confetti Celebration FX
+    function triggerConfetti() {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#00F2FE', '#9D50BB', '#00F5A0', '#4FACFE']
+        });
+      }
+    }
+
+    // Web Audio API Sound Synthesizer (Zero external audio file dependency)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function setupAudioToggle() {
+      const btn = document.getElementById('audio-toggle-btn');
+      const icon = document.getElementById('audio-icon');
+      const label = document.getElementById('audio-label');
+
+      btn.addEventListener('click', () => {
+        isAudioMuted = !isAudioMuted;
+        if (isAudioMuted) {
+          icon.className = 'fas fa-volume-mute text-slate-500';
+          label.innerText = '靜音';
+        } else {
+          icon.className = 'fas fa-volume-up text-cyan-400';
+          label.innerText = '音效開';
+          playSfx('click');
+        }
+      });
+    }
+
+    function playSfx(type) {
+      if (isAudioMuted) return;
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'click' || type === 'select') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(type === 'select' ? 600 : 400, now);
+          osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'join') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.setValueAtTime(500, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (type === 'win') {
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            gain.gain.setValueAtTime(0.2, now + idx * 0.09);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.09 + 0.2);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now + idx * 0.09);
+            osc.stop(now + idx * 0.09 + 0.2);
+          });
+        } else if (type === 'lose') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.linearRampToValueAtTime(150, now + 0.3);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        } else if (type === 'draw') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(350, now);
+          osc.frequency.setValueAtTime(350, now + 0.12);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        }
+      } catch (e) {
+        console.warn("Audio Context Play error:", e);
+      }
+    }
+
+    // UI Toast Message Notification
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      const colors = {
+        success: 'border-emerald-500 bg-slate-900/90 text-emerald-300',
+        error: 'border-rose-500 bg-slate-900/90 text-rose-300',
+        warning: 'border-amber-500 bg-slate-900/90 text-amber-300',
+        info: 'border-cyan-500 bg-slate-900/90 text-cyan-300'
+      };
+
+      toast.className = `p-3 rounded-xl border glass-card text-xs sm:text-sm font-semibold shadow-2xl flex items-center gap-2 transform transition-all duration-300 translate-y-[-10px] opacity-0 mb-2 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<i class="fas fa-info-circle"></i> <span>${escapeHtml(message)}</span>`;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-[-10px]', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-[-10px]');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Helper: HTML Escaper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>
