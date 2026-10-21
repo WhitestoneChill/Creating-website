@@ -142,7 +142,7 @@
                 </button>
             </div>
 
-            <!-- 結算後繼續按鈕 (房主專屬或所有人) -->
+            <!-- 結算後繼續按鈕 -->
             <div id="next-round-container" class="hidden">
                 <button onclick="resetRound()" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-bold text-white hover:opacity-90 active:scale-95 transition">
                     下一局
@@ -160,9 +160,9 @@
     <!-- Firebase SDK 引入與遊戲邏輯 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, get, update, onValue, remove, child, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, get, update, onValue, remove, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // ==================== 貼上你的 Firebase 設定 ====================
+        // ==================== 你的 Firebase 設定 ====================
         const firebaseConfig = {
             apiKey: "AIzaSyBiQICWPS7pBZNypc6yUxT4JJsGIlxoBck",
             authDomain: "rps-4-3dace.firebaseapp.com",
@@ -174,18 +174,15 @@
         };
         // ==============================================================
 
-        // 初始化 Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 全域變數
         let currentRoomId = null;
-        let myPlayerId = 'p_' + Math.random().toString(36.substring(2, 9));
+        let myPlayerId = 'p_' + Math.random().toString(36).substring(2, 9);
         let myName = '';
         let roomRef = null;
         let roomDataListener = null;
 
-        // 畫面切換控制
         function switchScreen(screenId) {
             ['screen-login', 'screen-lobby', 'screen-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -193,7 +190,6 @@
             document.getElementById(screenId).classList.remove('hidden');
         }
 
-        // 產生 4 位數隨機房號
         function generateRoomId() {
             return Math.floor(1000 + Math.random() * 9000).toString();
         }
@@ -211,7 +207,6 @@
             roomRef = ref(db, 'rooms/' + currentRoomId);
             const snapshot = await get(roomRef);
             
-            // 確保房號不重複
             if (snapshot.exists()) {
                 currentRoomId = generateRoomId();
                 roomRef = ref(db, 'rooms/' + currentRoomId);
@@ -282,7 +277,6 @@
             enterLobbyUI(false);
         };
 
-        // 進入大廳 UI 設定
         function enterLobbyUI(isHost) {
             document.getElementById('display-room-id').innerText = currentRoomId;
             if (isHost) {
@@ -295,15 +289,13 @@
             switchScreen('screen-lobby');
         }
 
-        // 監聽房間資料變動
         function initRoomListener() {
-            if (roomDataListener) roomDataListener(); // 移除舊監聽
+            if (roomDataListener) roomDataListener();
 
             roomDataListener = onValue(roomRef, (snapshot) => {
                 const data = snapshot.val();
                 if (!data) return;
 
-                // 更新大廳成員清單
                 const players = data.players || {};
                 const playerKeys = Object.keys(players);
                 document.getElementById('player-count').innerText = playerKeys.length;
@@ -322,7 +314,6 @@
                 });
                 document.getElementById('players-list').innerHTML = listHtml;
 
-                // 遊戲狀態同步
                 if (data.status === 'playing' || data.status === 'finished') {
                     if (document.getElementById('screen-game').classList.contains('hidden')) {
                         switchScreen('screen-game');
@@ -336,53 +327,42 @@
             });
         }
 
-        // 房主點擊開始遊戲
         window.startGame = async function() {
             await update(roomRef, { status: 'playing' });
         };
 
-        // 玩家出拳
         window.makeChoice = async function(choice) {
             await update(ref(db, `rooms/${currentRoomId}/players/${myPlayerId}`), {
                 choice: choice
             });
             document.getElementById('game-status-text').innerText = '已出拳，等待其他人中...';
-            // 鎖定按鈕樣式
             const btns = document.querySelectorAll('.choice-btn');
             btns.forEach(b => b.classList.add('opacity-50', 'pointer-events-none'));
         };
 
-        // 更新遊戲進行畫面
         function updateGameUI(data) {
             const players = data.players || {};
             const playerKeys = Object.keys(players);
 
-            // 尋找自己與對手
             const myData = players[myPlayerId] || {};
             const opponentKeys = playerKeys.filter(k => k !== myPlayerId);
-            const opponentKey = opponentKeys[0]; // 暫以雙人對戰為主
+            const opponentKey = opponentKeys[0];
             const opponentData = opponentKey ? players[opponentKey] : { name: '等待加入...', score: 0, choice: '' };
 
-            // 更新比分板名字與分數
             document.getElementById('p1-info').innerText = myData.name + ' (你)';
             document.getElementById('p1-score').innerText = myData.score || 0;
             document.getElementById('p2-info').innerText = opponentData.name;
             document.getElementById('p2-score').innerText = opponentData.score || 0;
 
-            // 檢查是否大家都出拳了
             let allChosen = playerKeys.length > 0;
-            let choicesSummary = {};
             playerKeys.forEach(k => {
                 if (!players[k].choice || players[k].choice === '') {
                     allChosen = false;
                 }
-                choicesSummary[k] = players[k].choice;
             });
 
             if (allChosen && playerKeys.length >= 2) {
-                // 結算勝負
                 if (myPlayerId === data.host) {
-                    // 讓房主負責計算一次分數並更新，避免重複計算
                     evaluateWinner(players, playerKeys);
                 }
             } else {
@@ -390,7 +370,6 @@
                     document.getElementById('game-status-text').innerText = '已出拳，等待對手出拳...';
                 } else {
                     document.getElementById('game-status-text').innerText = '請選擇你的出拳！';
-                    // 解除按鈕鎖定
                     const btns = document.querySelectorAll('.choice-btn');
                     btns.forEach(b => b.classList.remove('opacity-50', 'pointer-events-none'));
                 }
@@ -399,7 +378,6 @@
             }
         }
 
-        // 房主計算勝負邏輯 (支援 2 人對決)
         async function evaluateWinner(players, keys) {
             if (keys.length < 2) return;
             const p1Key = keys[0];
@@ -424,12 +402,10 @@
                 updates[`players/${p2Key}/score`] = (players[p2Key].score || 0) + 1;
             }
 
-            // 顯示結算與下一局按鈕
             document.getElementById('game-status-text').innerText = `結算：${players[p1Key].name}出[${translateChoice(c1)}] vs ${players[p2Key].name}出[${translateChoice(c2)}]`;
             document.getElementById('round-result-text').innerText = resultText;
             document.getElementById('next-round-container').classList.remove('hidden');
 
-            // 寫入加分 (只執行一次避免洗分)
             if (Object.keys(updates).length > 0) {
                 await update(roomRef, updates);
             }
@@ -442,9 +418,25 @@
             return '未出';
         }
 
-        // 下一局重設出拳
         window.resetRound = async function() {
             const snapshot = await get(roomRef);
             if (!snapshot.exists()) return;
             const players = snapshot.val().players || {};
             let resets = {};
+            Object.keys(players).forEach(k => {
+                resets[`players/${k}/choice`] = '';
+            });
+            await update(roomRef, resets);
+        };
+
+        window.leaveRoom = async function() {
+            if (roomRef && currentRoomId) {
+                await remove(ref(db, `rooms/${currentRoomId}/players/${myPlayerId}`));
+            }
+            if (roomDataListener) roomDataListener();
+            currentRoomId = null;
+            switchScreen('screen-login');
+        };
+    </script>
+</body>
+</html>
