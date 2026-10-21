@@ -88,7 +88,7 @@
             </div>
 
             <div>
-                <h3 class="text-sm font-medium text-slate-300 mb-3">房間成員 (<span id="player-count">0</span>/3)</h3>
+                <h3 class="text-sm font-medium text-slate-300 mb-3">房間成員 (<span id="player-count">0</span>/2)</h3>
                 <div id="players-list" class="space-y-2">
                     <!-- 動態載入玩家 -->
                 </div>
@@ -123,30 +123,31 @@
             <!-- 狀態提示 -->
             <div class="text-center">
                 <div id="game-status-text" class="text-lg font-bold text-cyan-200">請選擇你的出拳！</div>
-                <div id="round-result-text" class="text-sm text-purple-300 mt-1 h-6"></div>
+                <div id="round-result-text" class="text-sm text-purple-300 mt-1 h-6 font-semibold"></div>
             </div>
 
             <!-- 出拳按鈕區 (手機好按大尺寸) -->
             <div id="choice-buttons" class="grid grid-cols-3 gap-3">
-                <button onclick="makeChoice('rock')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
+                <button id="btn-rock" onclick="makeChoice('rock')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
                     <span class="text-3xl mb-1 group-hover:scale-110 transition">✊</span>
                     <span class="text-xs text-slate-300 font-medium">石頭</span>
                 </button>
-                <button onclick="makeChoice('paper')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
+                <button id="btn-paper" onclick="makeChoice('paper')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
                     <span class="text-3xl mb-1 group-hover:scale-110 transition">🖐️</span>
                     <span class="text-xs text-slate-300 font-medium">布</span>
                 </button>
-                <button onclick="makeChoice('scissors')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
+                <button id="btn-scissors" onclick="makeChoice('scissors')" class="choice-btn flex flex-col items-center justify-center py-5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-cyan-400 active:scale-95 transition group">
                     <span class="text-3xl mb-1 group-hover:scale-110 transition">✌️</span>
                     <span class="text-xs text-slate-300 font-medium">剪刀</span>
                 </button>
             </div>
 
             <!-- 結算後繼續按鈕 -->
-            <div id="next-round-container" class="hidden">
-                <button onclick="resetRound()" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-bold text-white hover:opacity-90 active:scale-95 transition">
+            <div id="next-round-container" class="hidden flex flex-col gap-2">
+                <button id="btn-next-round" onclick="resetRound()" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-bold text-white hover:opacity-90 active:scale-95 transition">
                     下一局
                 </button>
+                <p id="guest-next-wait" class="text-center text-xs text-slate-400 hidden animate-pulse">等待房主開啟下一局...</p>
             </div>
         </div>
 
@@ -160,7 +161,7 @@
     <!-- Firebase SDK 引入與遊戲邏輯 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, get, update, onValue, remove, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         // ==================== 你的 Firebase 設定 ====================
         const firebaseConfig = {
@@ -194,6 +195,17 @@
             return Math.floor(1000 + Math.random() * 9000).toString();
         }
 
+        function setChoiceButtonsEnabled(enabled) {
+            const btns = document.querySelectorAll('.choice-btn');
+            btns.forEach(b => {
+                if (enabled) {
+                    b.classList.remove('opacity-50', 'pointer-events-none');
+                } else {
+                    b.classList.add('opacity-50', 'pointer-events-none');
+                }
+            });
+        }
+
         // 建立房間
         window.createRoom = async function() {
             const nameInput = document.getElementById('input-name').value.trim();
@@ -215,6 +227,8 @@
             const initialData = {
                 host: myPlayerId,
                 status: 'waiting',
+                roundState: 'selecting',
+                lastResultText: '',
                 players: {
                     [myPlayerId]: {
                         name: myName,
@@ -261,8 +275,8 @@
                 return;
             }
 
-            if (playerKeys.length >= 3) {
-                alert('房間人數已滿 (最多 3 人)！');
+            if (playerKeys.length >= 2) {
+                alert('房間人數已滿 (最多 2 人)！');
                 return;
             }
 
@@ -328,16 +342,19 @@
         }
 
         window.startGame = async function() {
-            await update(roomRef, { status: 'playing' });
+            await update(roomRef, { 
+                status: 'playing',
+                roundState: 'selecting',
+                lastResultText: ''
+            });
         };
 
         window.makeChoice = async function(choice) {
             await update(ref(db, `rooms/${currentRoomId}/players/${myPlayerId}`), {
                 choice: choice
             });
+            setChoiceButtonsEnabled(false);
             document.getElementById('game-status-text').innerText = '已出拳，等待其他人中...';
-            const btns = document.querySelectorAll('.choice-btn');
-            btns.forEach(b => b.classList.add('opacity-50', 'pointer-events-none'));
         };
 
         function updateGameUI(data) {
@@ -347,34 +364,57 @@
             const myData = players[myPlayerId] || {};
             const opponentKeys = playerKeys.filter(k => k !== myPlayerId);
             const opponentKey = opponentKeys[0];
-            const opponentData = opponentKey ? players[opponentKey] : { name: '等待加入...', score: 0, choice: '' };
+            const opponentData = opponentKey ? players[opponentKey] : { name: '等待對手...', score: 0, choice: '' };
 
             document.getElementById('p1-info').innerText = myData.name + ' (你)';
             document.getElementById('p1-score').innerText = myData.score || 0;
             document.getElementById('p2-info').innerText = opponentData.name;
             document.getElementById('p2-score').innerText = opponentData.score || 0;
 
-            let allChosen = playerKeys.length > 0;
+            const isHost = (myPlayerId === data.host);
+
+            // 檢查雙方是否都已選擇
+            let allChosen = playerKeys.length >= 2;
             playerKeys.forEach(k => {
                 if (!players[k].choice || players[k].choice === '') {
                     allChosen = false;
                 }
             });
 
-            if (allChosen && playerKeys.length >= 2) {
-                if (myPlayerId === data.host) {
+            // 如果雙方都選擇了，但尚未進行該回合的結算 calculation
+            if (allChosen && data.roundState === 'selecting') {
+                if (isHost) {
                     evaluateWinner(players, playerKeys);
                 }
+                return;
+            }
+
+            // 如果回合已經完成結算 (roundState === 'evaluated')
+            if (data.roundState === 'evaluated') {
+                setChoiceButtonsEnabled(false);
+                document.getElementById('game-status-text').innerText = '本局結果揭曉！';
+                document.getElementById('round-result-text').innerText = data.lastResultText || '';
+
+                document.getElementById('next-round-container').classList.remove('hidden');
+                if (isHost) {
+                    document.getElementById('btn-next-round').classList.remove('hidden');
+                    document.getElementById('guest-next-wait').classList.add('hidden');
+                } else {
+                    document.getElementById('btn-next-round').classList.add('hidden');
+                    document.getElementById('guest-next-wait').classList.remove('hidden');
+                }
             } else {
+                // 還在進行選擇階段 (roundState === 'selecting')
+                document.getElementById('next-round-container').classList.add('hidden');
+                document.getElementById('round-result-text').innerText = '';
+
                 if (myData.choice) {
+                    setChoiceButtonsEnabled(false);
                     document.getElementById('game-status-text').innerText = '已出拳，等待對手出拳...';
                 } else {
+                    setChoiceButtonsEnabled(true);
                     document.getElementById('game-status-text').innerText = '請選擇你的出拳！';
-                    const btns = document.querySelectorAll('.choice-btn');
-                    btns.forEach(b => b.classList.remove('opacity-50', 'pointer-events-none'));
                 }
-                document.getElementById('round-result-text').innerText = '';
-                document.getElementById('next-round-container').classList.add('hidden');
             }
         }
 
@@ -386,29 +426,33 @@
             const c2 = players[p2Key].choice;
 
             let resultText = '';
-            let updates = {};
+            let newScores = {
+                [p1Key]: players[p1Key].score || 0,
+                [p2Key]: players[p2Key].score || 0
+            };
 
             if (c1 === c2) {
-                resultText = '🤝 平手！';
+                resultText = `🤝 平手！ (${players[p1Key].name}: ${translateChoice(c1)} vs ${players[p2Key].name}: ${translateChoice(c2)})`;
             } else if (
                 (c1 === 'rock' && c2 === 'scissors') ||
                 (c1 === 'paper' && c2 === 'rock') ||
                 (c1 === 'scissors' && c2 === 'paper')
             ) {
-                resultText = `🎉 ${players[p1Key].name} 贏了這一局！`;
-                updates[`players/${p1Key}/score`] = (players[p1Key].score || 0) + 1;
+                resultText = `🎉 ${players[p1Key].name} 贏了！ (${translateChoice(c1)} 勝 ${translateChoice(c2)})`;
+                newScores[p1Key] += 1;
             } else {
-                resultText = `🎉 ${players[p2Key].name} 贏了這一局！`;
-                updates[`players/${p2Key}/score`] = (players[p2Key].score || 0) + 1;
+                resultText = `🎉 ${players[p2Key].name} 贏了！ (${translateChoice(c2)} 勝 ${translateChoice(c1)})`;
+                newScores[p2Key] += 1;
             }
 
-            document.getElementById('game-status-text').innerText = `結算：${players[p1Key].name}出[${translateChoice(c1)}] vs ${players[p2Key].name}出[${translateChoice(c2)}]`;
-            document.getElementById('round-result-text').innerText = resultText;
-            document.getElementById('next-round-container').classList.remove('hidden');
+            const updates = {
+                [`players/${p1Key}/score`]: newScores[p1Key],
+                [`players/${p2Key}/score`]: newScores[p2Key],
+                roundState: 'evaluated',
+                lastResultText: resultText
+            };
 
-            if (Object.keys(updates).length > 0) {
-                await update(roomRef, updates);
-            }
+            await update(roomRef, updates);
         }
 
         function translateChoice(c) {
@@ -422,11 +466,17 @@
             const snapshot = await get(roomRef);
             if (!snapshot.exists()) return;
             const players = snapshot.val().players || {};
-            let resets = {};
+            
+            let updates = {
+                roundState: 'selecting',
+                lastResultText: ''
+            };
+
             Object.keys(players).forEach(k => {
-                resets[`players/${k}/choice`] = '';
+                updates[`players/${k}/choice`] = '';
             });
-            await update(roomRef, resets);
+
+            await update(roomRef, updates);
         };
 
         window.leaveRoom = async function() {
