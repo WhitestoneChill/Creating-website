@@ -828,6 +828,96 @@
     }
 
     /*
+      Game Card
+    */
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 22px;
+    }
+
+    .game-card {
+      display: block;
+      position: relative;
+      overflow: hidden;
+      padding: 28px;
+      border: 1px solid rgba(112, 255, 210, 0.20);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(18, 30, 43, 0.78), rgba(12, 18, 32, 0.62));
+      box-shadow:
+        0 0 28px rgba(112, 255, 210, 0.05),
+        inset 0 0 24px rgba(112, 255, 210, 0.025);
+      backdrop-filter: blur(14px);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .game-card::before {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      top: -90px;
+      right: -55px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(102, 230, 255, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .game-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(112, 255, 210, 0.52);
+      box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.18),
+        0 0 34px rgba(112, 255, 210, 0.10);
+    }
+
+    .game-card-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 54px;
+      height: 54px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(112, 255, 210, 0.25);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(112, 255, 210, 0.12), rgba(117, 156, 255, 0.12));
+      font-size: 1.7rem;
+    }
+
+    .game-card h3 {
+      position: relative;
+      margin-bottom: 10px;
+      color: #f4f8ff;
+      font-size: 1.35rem;
+    }
+
+    .game-card p {
+      position: relative;
+      margin-bottom: 22px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .game-card-link {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--aurora-green);
+      font-weight: 700;
+    }
+
+    .game-card-link span {
+      transition: transform 0.2s ease;
+    }
+
+    .game-card:hover .game-card-link span {
+      transform: translateX(4px);
+    }
+
+    /*
       Footer
     */
 
@@ -1117,7 +1207,21 @@
     <section id="games">
       <div class="container">
         <div class="section-label">Games</div>
-        <h2>Coming soon</h2>
+        <h2>小遊戲</h2>
+        <div class="game-grid">
+          <a
+            class="game-card"
+            href="https://whitestonechill.github.io/Creating-website/RPCGame.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="開啟猜拳遊戲（另開新分頁）"
+          >
+            <div class="game-card-icon" aria-hidden="true">✊</div>
+            <h3>猜拳遊戲</h3>
+            <p>來一場石頭、剪刀、布的對決，看看這回合誰能勝出。</p>
+            <span class="game-card-link">開始遊戲 <span aria-hidden="true">↗</span></span>
+          </a>
+        </div>
       </div>
     </section>
 
