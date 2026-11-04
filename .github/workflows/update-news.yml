@@ -1,9 +1,9 @@
-name: Update Google Alerts News
+name: Update Google News
 
 on:
   schedule:
-    # 台灣時間每週一 08:00（UTC+8）＝ UTC 每週一 00:00
-    - cron: "0 0 * * 1"
+    # 台灣時間每週一早上 8 點 (UTC 0 點)
+    - cron: '0 0 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -19,105 +19,33 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: '3.10'
 
-      - name: Fetch Google Alerts RSS feeds and build news.json
+      - name: Install feedparser
+        run: pip install feedparser
+
+      - name: Fetch RSS and generate JSON
+        env:
+          RSS_URL: 'https://www.google.com/alerts/feeds/00437155220071003950/7744391687657049501'
         run: |
-          python - <<'PY'
-          import json
-          import urllib.request
-          import xml.etree.ElementTree as ET
-          from datetime import datetime, timezone
-          from email.utils import parsedate_to_datetime
-          from pathlib import Path
+          python -c '
+          import os, json, feedparser
+          url = os.environ["RSS_URL"]
+          feed = feedparser.parse(url)
+          news = []
+          for entry in feed.entries[:10]:
+              news.append({
+                  "title": entry.get("title", ""),
+                  "link": entry.get("link", ""),
+                  "published": entry.get("published", "")
+              })
+          with open("news.json", "w", encoding="utf-8") as f:
+              json.dump(news, f, ensure_ascii=False, indent=2)
+          '
 
-          FEEDS = [
-              "https://www.google.com/alerts/feeds/00437155220071003950/7744391687657049501",
-              "https://www.google.com/alerts/feeds/00437155220071003950/2521954060547320366",
-              "https://www.google.com/alerts/feeds/00437155220071003950/8116942284729614957",
-          ]
-
-          ATOM = "{http://www.w3.org/2005/Atom}"
-          items = {}
-
-          def parse_date(value):
-              if not value:
-                  return ""
-              try:
-                  dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-                  if dt.tzinfo is None:
-                      dt = dt.replace(tzinfo=timezone.utc)
-                  return dt.astimezone(timezone.utc).isoformat()
-              except ValueError:
-                  try:
-                      dt = parsedate_to_datetime(value)
-                      if dt.tzinfo is None:
-                          dt = dt.replace(tzinfo=timezone.utc)
-                      return dt.astimezone(timezone.utc).isoformat()
-                  except (TypeError, ValueError):
-                      return ""
-
-          for feed_url in FEEDS:
-              request = urllib.request.Request(
-                  feed_url,
-                  headers={"User-Agent": "Mozilla/5.0 (compatible; GitHubActionsNewsBot/1.0)"}
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      root = ET.fromstring(response.read())
-              except Exception as error:
-                  print(f"Feed fetch failed: {feed_url} ({error})")
-                  continue
-
-              for entry in root.findall(f"{ATOM}entry"):
-                  title = (entry.findtext(f"{ATOM}title") or "").strip()
-                  link_element = entry.find(f"{ATOM}link[@rel='alternate']")
-                  if link_element is None:
-                      link_element = entry.find(f"{ATOM}link")
-                  link = link_element.get("href", "").strip() if link_element is not None else ""
-                  published = parse_date(
-                      entry.findtext(f"{ATOM}published")
-                      or entry.findtext(f"{ATOM}updated")
-                  )
-                  source_element = entry.find(f"{ATOM}source/{ATOM}title")
-                  source = (source_element.text or "").strip() if source_element is not None else "Google 快訊"
-
-                  if not title or not link:
-                      continue
-
-                  # 以連結去重，並保留有日期的版本。
-                  current = items.get(link)
-                  item = {
-                      "title": title,
-                      "link": link,
-                      "published": published,
-                      "source": source or "Google 快訊",
-                  }
-                  if current is None or published > current.get("published", ""):
-                      items[link] = item
-
-          news = sorted(
-              items.values(),
-              key=lambda item: item.get("published", ""),
-              reverse=True
-          )
-
-          output = Path("news.json")
-          output.write_text(
-              json.dumps(news, ensure_ascii=False, indent=2) + "\n",
-              encoding="utf-8"
-          )
-          print(f"Wrote {len(news)} news items to {output}")
-          PY
-
-      - name: Commit news.json if changed
+      - name: Commit and push if news changed
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add news.json
-          if git diff --cached --quiet; then
-            echo "news.json is unchanged."
-          else
-            git commit -m "Update Google Alerts news"
-            git push
-          fi
+          git diff --quiet && git diff --cached --quiet || (git commit -m "chore: update news.json automatically" && git push)
