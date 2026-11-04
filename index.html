@@ -691,6 +691,49 @@
     }
 
     /*
+      Latest News
+    */
+
+    .news-list {
+      display: grid;
+      gap: 16px;
+      max-width: 900px;
+    }
+
+    .news-item {
+      display: block;
+      padding: 22px 25px;
+      border: 1px solid rgba(112, 255, 210, 0.16);
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(18, 30, 43, 0.72), rgba(12, 18, 32, 0.54));
+      backdrop-filter: blur(12px);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .news-item:hover {
+      transform: translateY(-3px);
+      border-color: rgba(112, 255, 210, 0.42);
+      box-shadow: 0 8px 28px rgba(112, 255, 210, 0.07);
+    }
+
+    .news-item h3 {
+      margin-bottom: 8px;
+      color: #f4f8ff;
+      font-size: 1.08rem;
+      line-height: 1.5;
+    }
+
+    .news-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .news-status {
+      color: var(--muted);
+    }
+
+    /*
       CTA
     */
 
@@ -1189,11 +1232,14 @@
       </div>
     </section>
 
-    <!-- Coming Soon sections -->
+    <!-- Latest News -->
     <section id="news">
       <div class="container">
         <div class="section-label">News</div>
-        <h2>Coming soon</h2>
+        <h2>最新消息</h2>
+        <div class="news-list" id="newsList" aria-live="polite">
+          <p class="news-status">正在載入最新消息……</p>
+        </div>
       </div>
     </section>
 
@@ -1282,6 +1328,68 @@
       profileImage.style.display = "none";
       photoPlaceholder.style.display = "block";
     });
+
+    /*
+      最新消息：
+      讀取由 GitHub Actions 定期產生的 news.json。
+    */
+    const newsList = document.getElementById("newsList");
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, function (char) {
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[char];
+      });
+    }
+
+    function formatNewsDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-TW", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: "Asia/Taipei"
+      }).format(date);
+    }
+
+    async function loadNews() {
+      try {
+        const response = await fetch("./news.json", { cache: "no-store" });
+        if (!response.ok) throw new Error("無法讀取 news.json");
+
+        const news = await response.json();
+        if (!Array.isArray(news) || news.length === 0) {
+          newsList.innerHTML = '<p class="news-status">目前沒有新聞。</p>';
+          return;
+        }
+
+        newsList.innerHTML = news.map(function (item) {
+          const title = escapeHTML(item.title || "未命名新聞");
+          const source = escapeHTML(item.source || "Google 快訊");
+          const date = escapeHTML(formatNewsDate(item.published));
+          const url = escapeHTML(item.link || "#");
+
+          return `
+            <a class="news-item" href="${url}" target="_blank" rel="noopener noreferrer">
+              <h3>${title}</h3>
+              <div class="news-meta">${source}${date ? " · " + date : ""}</div>
+            </a>
+          `;
+        }).join("");
+      } catch (error) {
+        newsList.innerHTML = '<p class="news-status">最新消息暫時無法載入，請稍後再試。</p>';
+        console.error("載入新聞失敗：", error);
+      }
+    }
+
+    loadNews();
   </script>
 
 </body>
