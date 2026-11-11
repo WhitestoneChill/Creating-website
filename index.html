@@ -4,8 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>冰雨｜個人首頁</title>
-  <meta name="description" content="冰雨的個人首頁">
+  <title>冰雨｜個人首頁 - 遊戲設計</title>
+  <meta name="description" content="遊戲設計">
+
+  <!-- Open Graph / Social Media Settings -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://whitestonechill.github.io/Creating-website/">
+  <meta property="og:title" content="冰雨｜個人首頁 - 遊戲設計">
+  <meta property="og:description" content="遊戲設計">
+  <meta property="og:image" content="https://whitestonechill.github.io/Creating-website/og.jpg">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8M17ER277G"></script>
@@ -385,6 +396,15 @@
         drop-shadow(0 0 24px rgba(112, 255, 210, 0.10));
     }
 
+    .site-tagline {
+      font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+      color: var(--aurora-green);
+      margin-bottom: 20px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 16px rgba(112, 255, 210, 0.3);
+    }
+
     .identity {
       color: var(--muted);
 
@@ -395,12 +415,47 @@
 
     .hero-actions {
       margin-top: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
     }
 
     .hero-actions .game-button {
       margin-left: 0;
       padding: 15px 30px;
       font-size: 1rem;
+    }
+
+    /* 分享按鈕樣式 (配合現有網站外觀) */
+    .share-buttons {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 13px 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(112, 255, 210, 0.38);
+      background: rgba(10, 20, 30, 0.72);
+      color: var(--aurora-green);
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 0 22px rgba(112, 255, 210, 0.10), inset 0 0 18px rgba(112, 255, 210, 0.04);
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    }
+
+    .share-btn:hover {
+      transform: translateY(-3px);
+      border-color: rgba(112, 255, 210, 0.75);
+      color: #ffffff;
+      box-shadow: 0 0 30px rgba(112, 255, 210, 0.24), 0 0 65px rgba(102, 135, 255, 0.10);
     }
 
     /*
@@ -506,49 +561,6 @@
       padding: 25px;
 
       font-size: 0.85rem;
-    }
-
-    .photo-input {
-      display: none;
-    }
-
-    .photo-button {
-      position: absolute;
-
-      z-index: 5;
-
-      bottom: 15px;
-      left: 50%;
-
-      transform: translateX(-50%);
-
-      border: 1px solid rgba(143, 255, 228, 0.22);
-
-      background:
-        rgba(4, 10, 17, 0.72);
-
-      color: var(--text);
-
-      padding: 7px 13px;
-
-      border-radius: 999px;
-
-      font-size: 0.72rem;
-
-      cursor: pointer;
-
-      backdrop-filter: blur(10px);
-
-      transition:
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-    }
-
-    .photo-button:hover {
-      border-color: rgba(112, 255, 210, 0.55);
-
-      box-shadow:
-        0 0 18px rgba(112, 255, 210, 0.15);
     }
 
     /*
@@ -1139,17 +1151,17 @@
         <li><a href="#home">Home</a></li>
         <li>
           <a href="#news">
-            News <span class="coming">Coming soon</span>
+            News
           </a>
         </li>
         <li>
           <a href="#tools">
-            Tools <span class="coming">Coming soon</span>
+            Tools
           </a>
         </li>
         <li>
           <a href="#games">
-            Games <span class="coming">Coming soon</span>
+            Games
           </a>
         </li>
       </ul>
@@ -1166,12 +1178,18 @@
           <div class="eyebrow">PERSONAL PROFILE</div>
 
           <h1>冰雨</h1>
+          <div class="site-tagline">遊戲設計</div>
 
           <p class="identity">
             大同大學數位媒體設計學系學生，參與遊戲劇情、企劃與程式製作。
           </p>
           <div class="hero-actions">
             <a class="game-button" href="game.html">玩我的小遊戲</a>
+            <div class="share-buttons">
+              <button class="share-btn" id="shareLine" title="分享到 LINE">LINE</button>
+              <button class="share-btn" id="shareFb" title="分享到 Facebook">Facebook</button>
+              <button class="share-btn" id="shareSys" title="分享網站">分享</button>
+            </div>
           </div>
         </div>
 
@@ -1390,6 +1408,50 @@
     }
 
     loadNews();
+
+    /*
+      分享按鈕功能：
+      - LINE：呼叫 LINE 分享網址
+      - Facebook：呼叫 FB 分享網址
+      - 手機分享：優先使用系統 Web Share API，若不支援則自動切換為複製網址到剪貼簿
+    */
+    const siteUrl = window.location.href;
+    const siteTitle = "冰雨｜個人首頁 - 遊戲設計";
+
+    document.getElementById("shareLine").addEventListener("click", function() {
+      const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(siteUrl)}`;
+      window.open(lineUrl, '_blank');
+    });
+
+    document.getElementById("shareFb").addEventListener("click", function() {
+      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(siteUrl)}`;
+      window.open(fbUrl, '_blank');
+    });
+
+    document.getElementById("shareSys").addEventListener("click", async function() {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: siteTitle,
+            text: "遊戲設計",
+            url: siteUrl,
+          });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error('分享失敗:', err);
+          }
+        }
+      } else {
+        // 電腦上或不支援 navigator.share 時改為複製網址
+        try {
+          await navigator.clipboard.writeText(siteUrl);
+          alert("已成功複製網址！");
+        } catch (err) {
+          console.error('複製網址失敗:', err);
+          alert("複製網址失敗，請手動複製瀏覽器網址列。");
+        }
+      }
+    });
   </script>
 
 </body>
