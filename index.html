@@ -459,8 +459,14 @@
     }
 
     /*
-      Profile photo
+      Profile photo & Weather Card Container (右側欄位區塊)
     */
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 20px;
+    }
 
     .hero-photo {
       width: 260px;
@@ -561,6 +567,70 @@
       padding: 25px;
 
       font-size: 0.85rem;
+    }
+
+    /*
+      Weather Card (天氣小卡樣式)
+    */
+    .weather-card {
+      width: 260px;
+      display: block;
+      padding: 18px 22px;
+      border-radius: 18px;
+      border: 1px solid rgba(112, 255, 210, 0.28);
+      background: linear-gradient(135deg, rgba(18, 30, 43, 0.85), rgba(12, 18, 32, 0.72));
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25), 0 0 25px rgba(112, 255, 210, 0.08);
+      backdrop-filter: blur(14px);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .weather-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(112, 255, 210, 0.65);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3), 0 0 35px rgba(112, 255, 210, 0.18);
+    }
+
+    .weather-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .weather-title {
+      font-size: 0.8rem;
+      color: var(--aurora-green);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .weather-temp {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .weather-desc {
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .weather-footer {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .weather-link-hint {
+      color: var(--aurora-cyan);
+      font-weight: 600;
     }
 
     /*
@@ -1054,11 +1124,20 @@
         gap: 45px;
       }
 
+      .hero-right {
+        align-items: center;
+      }
+
       .hero-photo {
         width: 190px;
         height: 190px;
 
         margin: 0;
+      }
+
+      .weather-card {
+        width: 100%;
+        max-width: 260px;
       }
 
       section {
@@ -1193,16 +1272,32 @@
           </div>
         </div>
 
-        <div class="hero-photo">
-          <img
-            id="profileImage"
-            src="image/me.png"
-            alt="冰雨"
-          >
+        <div class="hero-right">
+          <div class="hero-photo">
+            <img
+              id="profileImage"
+              src="image/me.png"
+              alt="冰雨"
+            >
 
-          <div class="photo-placeholder" id="photoPlaceholder">
-            尚未提供個人照片
+            <div class="photo-placeholder" id="photoPlaceholder">
+              尚未提供個人照片
+            </div>
           </div>
+
+          <!-- 天氣小卡 (點擊可開啟 weather.html) -->
+          <a href="weather.html" class="weather-card" aria-label="查看詳細天氣預報">
+            <div class="weather-header">
+              <span class="weather-title">今日天氣</span>
+              <span id="weatherIcon">⛅</span>
+            </div>
+            <div class="weather-temp" id="weatherTemp">--°C</div>
+            <div class="weather-desc" id="weatherDesc">載入中...</div>
+            <div class="weather-footer">
+              <span id="weatherRain">降雨機率：--%</span>
+              <span class="weather-link-hint">預報 ↗</span>
+            </div>
+          </a>
         </div>
 
       </div>
@@ -1346,6 +1441,61 @@
       profileImage.style.display = "none";
       photoPlaceholder.style.display = "block";
     });
+
+    /*
+      今日天氣小卡自動載入：
+      使用免費且免 API Key 的 Open-Meteo 氣象 API（此處以台北示範，可自行調整 lat/lon）
+    */
+    async function loadWeather() {
+      const tempEl = document.getElementById("weatherTemp");
+      const descEl = document.getElementById("weatherDesc");
+      const rainEl = document.getElementById("weatherRain");
+      const iconEl = document.getElementById("weatherIcon");
+
+      try {
+        // 預設抓取台北座標 (緯度 25.04, 經度 121.56)
+        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=25.04&longitude=121.56&current=temperature_2m,weather_code,precipitation&daily=precipitation_probability_max&timezone=Asia%2FTaipei");
+        if (!res.ok) throw new Error("無法取得天氣資料");
+        const data = await res.json();
+
+        const temp = data.current.temperature_2m;
+        const code = data.current.weather_code;
+        // 抓取今天最大的降雨機率
+        const rainProb = data.daily && data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[0] : 0;
+
+        tempEl.textContent = `${temp}°C`;
+        rainEl.textContent = `降雨機率：${rainProb}%`;
+
+        // 簡單的天氣代碼對應狀況與圖示
+        let desc = "晴朗";
+        let icon = "☀️";
+        if (code >= 1 && code <= 3) {
+          desc = "多雲";
+          icon = "⛅";
+        } else if (code >= 51 && code <= 67 || code >= 80 && code <= 82) {
+          desc = "下雨";
+          icon = "🌧️";
+        } else if (code >= 71 && code <= 77) {
+          desc = "下雪";
+          icon = "❄️";
+        } else if (code >= 95) {
+          desc = "雷雨";
+          icon = "⚡";
+        } else if (code >= 45 && code <= 48) {
+          desc = "起霧";
+          icon = "🌫️";
+        }
+
+        descEl.textContent = desc;
+        iconEl.textContent = icon;
+      } catch (err) {
+        console.error("天氣載入失敗：", err);
+        descEl.textContent = "氣象資訊無法顯示";
+        rainEl.textContent = "降雨機率：--%";
+      }
+    }
+
+    loadWeather();
 
     /*
       最新消息：
