@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="簡單易用的 HEX 與 RGB 色碼互轉工具，即時預覽顏色並快速取得對應色碼。">
+  <meta name="theme-color" content="#f4f6fb">
+  <title>HEX ⇄ RGB 色碼轉換器</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8M17ER277G"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8M17ER277G');
+  </script>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202638;
+      --muted: #697386;
+      --line: #e4e8f0;
+      --accent: #5368df;
+      --accent-dark: #4054c6;
+      --surface: #ffffff;
+      --page: #f4f6fb;
+      --shadow: 0 18px 55px rgba(34, 46, 82, .09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(110, 128, 230, .13), transparent 32rem),
+        radial-gradient(circle at 90% 90%, rgba(95, 190, 183, .12), transparent 28rem),
+        var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+                   "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    .page {
+      width: min(100%, 760px);
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin: 0 2px 18px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--accent);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .home-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: .9rem;
+      font-weight: 650;
+      transition: color .2s ease;
+    }
+
+    .home-link:hover, .home-link:focus-visible { color: var(--accent-dark); }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid rgba(226, 231, 241, .9);
+      border-radius: 24px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .preview {
+      min-height: 230px;
+      padding: 34px 28px 27px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-start;
+      background: #6c63ff;
+      color: #fff;
+      transition: background-color .18s ease;
+    }
+
+    .preview-label {
+      margin: 0 0 9px;
+      font-size: .75rem;
+      font-weight: 750;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      opacity: .82;
+    }
+
+    .preview-value {
+      margin: 0;
+      font-size: clamp(2rem, 7vw, 3.35rem);
+      line-height: 1.08;
+      font-weight: 800;
+      letter-spacing: -.045em;
+      overflow-wrap: anywhere;
+      text-shadow: 0 1px 12px rgba(0, 0, 0, .12);
+    }
+
+    .preview-hint {
+      margin: 12px 0 0;
+      font-size: .9rem;
+      opacity: .85;
+    }
+
+    .content { padding: 30px; }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 4vw, 1.9rem);
+      letter-spacing: -.035em;
+    }
+
+    .intro {
+      margin: 9px 0 26px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: .96rem;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 17px;
+    }
+
+    .field { min-width: 0; }
+
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 9px;
+      font-size: .88rem;
+      font-weight: 750;
+    }
+
+    .format-tag {
+      color: #8992a4;
+      font-size: .72rem;
+      font-weight: 650;
+      letter-spacing: .06em;
+    }
+
+    input {
+      width: 100%;
+      min-height: 58px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #fbfcfe;
+      color: var(--ink);
+      font: 600 1rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(83, 104, 223, .12);
+    }
+
+    input[aria-invalid="true"] { border-color: #d94d61; }
+
+    .field-help {
+      min-height: 21px;
+      margin: 8px 2px 0;
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.5;
+    }
+
+    .field-help.error { color: #c23e52; }
+
+    .divider {
+      height: 1px;
+      margin: 25px 0 20px;
+      background: var(--line);
+    }
+
+    .bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .tip {
+      margin: 0;
+      color: var(--muted);
+      font-size: .82rem;
+      line-height: 1.6;
+    }
+
+    .reset {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #fff;
+      color: #46516a;
+      font: inherit;
+      font-size: .84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color .2s ease, color .2s ease, background .2s ease;
+    }
+
+    .reset:hover {
+      border-color: #c7ceef;
+      background: #f7f8ff;
+      color: var(--accent-dark);
+    }
+
+    .footer {
+      margin: 17px 4px 0;
+      color: #8992a4;
+      text-align: center;
+      font-size: .78rem;
+    }
+
+    @media (max-width: 560px) {
+      body { padding: 18px 12px; align-items: flex-start; }
+      .page { margin: auto 0; }
+      .topline { margin-bottom: 13px; }
+      .panel { border-radius: 19px; }
+      .preview { min-height: 190px; padding: 25px 21px 22px; }
+      .content { padding: 24px 20px 22px; }
+      .fields { grid-template-columns: 1fr; gap: 14px; }
+      input { min-height: 55px; }
+      .divider { margin: 18px 0 16px; }
+      .bottom-row { align-items: flex-start; }
+    }
+
+    @media (max-width: 360px) {
+      .bottom-row { flex-direction: column; }
+      .reset { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topline">
+      <p class="eyebrow">Color tools</p>
+      <a class="home-link" href="index.html" aria-label="返回個人網站首頁">
+        <span aria-hidden="true">←</span> 返回首頁
+      </a>
+    </div>
+
+    <section class="panel" aria-labelledby="page-title">
+      <div class="preview" id="colorPreview" role="img" aria-label="目前選取的顏色預覽">
+        <p class="preview-label">Color preview</p>
+        <p class="preview-value" id="previewHex">#6C63FF</p>
+        <p class="preview-hint">即時顏色預覽</p>
+      </div>
+
+      <div class="content">
+        <h1 id="page-title">HEX ⇄ RGB 色碼轉換器</h1>
+        <p class="intro">輸入任一種格式的色碼，另一欄就會即時轉換。選擇顏色時，也能在上方直接預覽效果。</p>
+
+        <div class="fields">
+          <div class="field">
+            <label for="hexInput">
+              HEX 色碼 <span class="format-tag">HEX</span>
+            </label>
+            <input id="hexInput" type="text" value="#6C63FF"
+                   placeholder="#6C63FF" autocomplete="off" spellcheck="false"
+                   aria-describedby="hexHelp">
+            <p class="field-help" id="hexHelp">支援 #RGB、#RRGGBB，也可省略開頭的 #。</p>
+          </div>
+
+          <div class="field">
+            <label for="rgbInput">
+              RGB 色碼 <span class="format-tag">RGB</span>
+            </label>
+            <input id="rgbInput" type="text" value="rgb(108, 99, 255)"
+                   placeholder="rgb(108, 99, 255)" autocomplete="off" spellcheck="false"
+                   aria-describedby="rgbHelp">
+            <p class="field-help" id="rgbHelp">格式：rgb(紅, 綠, 藍)，數值範圍為 0–255。</p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="bottom-row">
+          <p class="tip">小提醒：兩個欄位都可以直接編輯，轉換結果會同步更新。</p>
+          <button class="reset" id="resetButton" type="button">重設範例</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer">HEX to RGB · RGB to HEX</p>
+  </main>
+
+  <script>
+    const hexInput = document.getElementById('hexInput');
+    const rgbInput = document.getElementById('rgbInput');
+    const preview = document.getElementById('colorPreview');
+    const previewHex = document.getElementById('previewHex');
+    const hexHelp = document.getElementById('hexHelp');
+    const rgbHelp = document.getElementById('rgbHelp');
+
+    function parseHex(value) {
+      let hex = value.trim().replace(/^#/, '');
+      if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+        hex = hex.split('').map(char => char + char).join('');
+      }
+      if (!/^[0-9a-fA-F]{6}$/.test(hex)) return null;
+
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16)
+      };
+    }
+
+    function parseRgb(value) {
+      const match = value.trim().match(
+        /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i
+      );
+      if (!match) return null;
+
+      const [r, g, b] = match.slice(1, 4).map(Number);
+      if ([r, g, b].some(channel => channel < 0 || channel > 255)) return null;
+      return { r, g, b };
+    }
+
+    function toHex({ r, g, b }) {
+      return '#' + [r, g, b]
+        .map(channel => channel.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+    }
+
+    function toRgb({ r, g, b }) {
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function showColor(color) {
+      const hex = toHex(color);
+      preview.style.backgroundColor = hex;
+      previewHex.textContent = hex;
+
+      // 依亮度選擇預覽文字顏色，確保明暗背景都容易閱讀。
+      const luminance = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+      preview.style.color = luminance > 155 ? '#202638' : '#ffffff';
+    }
+
+    function setError(input, help, message) {
+      input.setAttribute('aria-invalid', message ? 'true' : 'false');
+      help.textContent = message || (input === hexInput
+        ? '支援 #RGB、#RRGGBB，也可省略開頭的 #。'
+        : '格式：rgb(紅, 綠, 藍)，數值範圍為 0–255。');
+      help.classList.toggle('error', Boolean(message));
+    }
+
+    hexInput.addEventListener('input', () => {
+      const color = parseHex(hexInput.value);
+      if (!hexInput.value.trim()) {
+        setError(hexInput, hexHelp, '請輸入 HEX 色碼。');
+        rgbInput.value = '';
+        setError(rgbInput, rgbHelp, '');
+        return;
+      }
+      if (!color) {
+        setError(hexInput, hexHelp, '格式不正確，請輸入 3 位或 6 位十六進位色碼。');
+        return;
+      }
+
+      setError(hexInput, hexHelp, '');
+      setError(rgbInput, rgbHelp, '');
+      rgbInput.value = toRgb(color);
+      showColor(color);
+    });
+
+    rgbInput.addEventListener('input', () => {
+      const color = parseRgb(rgbInput.value);
+      if (!rgbInput.value.trim()) {
+        setError(rgbInput, rgbHelp, '請輸入 RGB 色碼。');
+        hexInput.value = '';
+        setError(hexInput, hexHelp, '');
+        return;
+      }
+      if (!color) {
+        setError(rgbInput, rgbHelp, '格式不正確，請使用 rgb(0, 128, 255)，每個數值須介於 0–255。');
+        return;
+      }
+
+      setError(rgbInput, rgbHelp, '');
+      setError(hexInput, hexHelp, '');
+      hexInput.value = toHex(color);
+      showColor(color);
+    });
+
+    document.getElementById('resetButton').addEventListener('click', () => {
+      const sample = { r: 108, g: 99, b: 255 };
+      hexInput.value = toHex(sample);
+      rgbInput.value = toRgb(sample);
+      setError(hexInput, hexHelp, '');
+      setError(rgbInput, rgbHelp, '');
+      showColor(sample);
+      hexInput.focus();
+    });
+
+    showColor({ r: 108, g: 99, b: 255 });
+  </script>
+</body>
+</html>

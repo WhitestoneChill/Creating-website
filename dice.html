@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="自訂骰子數量、面數、成功門檻與追加擲骰規則，快速擲骰並查看每顆骰子的結果、總點數和成功數。">
+  <title>擲骰子工具</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8M17ER277G"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8M17ER277G');
+  </script>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fb;
+      --panel: #ffffff;
+      --ink: #202638;
+      --muted: #697386;
+      --line: #e3e7ef;
+      --accent: #5b65d8;
+      --accent-dark: #454fc0;
+      --success: #16845b;
+      --shadow: 0 14px 40px rgba(32, 38, 56, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 16px 48px;
+      background: radial-gradient(circle at top, #e9edff 0, var(--bg) 390px);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { width: min(760px, 100%); margin: 0 auto; }
+    .top-nav { display: flex; justify-content: flex-start; margin-bottom: 4px; }
+    .home-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .85);
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .home-link:hover {
+      color: var(--accent);
+      border-color: #c8cef7;
+      background: #ffffff;
+    }
+    .home-link:focus-visible { outline: 3px solid rgba(91, 101, 216, .35); outline-offset: 2px; }
+    header { text-align: center; margin: 8px 0 26px; }
+    .eyebrow {
+      color: var(--accent);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 8px 0; font-size: clamp(2rem, 7vw, 2.8rem); letter-spacing: -.04em; }
+    header p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(227, 231, 239, .9);
+      border-radius: 22px;
+      padding: clamp(18px, 4vw, 30px);
+      box-shadow: var(--shadow);
+    }
+    .settings {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .field { min-width: 0; }
+    label { display: block; margin-bottom: 8px; font-size: .92rem; font-weight: 700; }
+    .hint { display: block; margin-top: 6px; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+    input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91, 101, 216, .14); }
+    .actions { margin-top: 24px; }
+    button {
+      width: 100%;
+      min-height: 54px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(91, 101, 216, .23);
+      transition: background .15s, transform .15s;
+    }
+    button:hover { background: var(--accent-dark); }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid rgba(91, 101, 216, .35); outline-offset: 3px; }
+    .error { min-height: 1.4em; margin: 12px 0 0; color: #bd3346; font-size: .88rem; }
+    .results { margin-top: 22px; }
+    .results-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    h2 { margin: 0; font-size: 1.2rem; }
+    .status { color: var(--muted); font-size: .82rem; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fafbff;
+    }
+    .stat-label { color: var(--muted); font-size: .82rem; font-weight: 700; }
+    .stat-value { display: block; margin-top: 4px; font-size: clamp(1.8rem, 6vw, 2.25rem); font-weight: 850; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .stat.success .stat-value { color: var(--success); }
+    .dice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 10px; }
+    .die {
+      min-height: 78px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+    }
+    .die.bonus { border-color: #b9bdf4; background: #f3f3ff; }
+    .die.is-success { border-color: #a8ddc7; background: #effaf5; }
+    .die-value { font-size: 1.55rem; font-weight: 850; font-variant-numeric: tabular-nums; }
+    .die-label { color: var(--muted); font-size: .7rem; font-weight: 700; }
+    .empty {
+      padding: 26px 16px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .footnote { margin: 16px 2px 0; color: var(--muted); font-size: .78rem; line-height: 1.6; }
+    @media (max-width: 520px) {
+      body { padding: 20px 12px 32px; }
+      header { margin-bottom: 20px; }
+      .settings { grid-template-columns: 1fr; gap: 14px; }
+      .panel { border-radius: 18px; }
+      .results-head { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .dice-list { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+      .die { min-height: 70px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="top-nav" aria-label="頁面導覽">
+      <a class="home-link" href="./index.html">← 回首頁</a>
+    </nav>
+    <header>
+      <div class="eyebrow">Dice Roller</div>
+      <h1>擲骰子</h1>
+      <p>自訂骰池與成功規則，快速查看每顆骰子的結果。</p>
+    </header>
+
+    <section class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title" style="margin-bottom:20px">擲骰設定</h2>
+      <div class="settings">
+        <div class="field">
+          <label for="diceCount">骰子數量</label>
+          <input id="diceCount" type="number" min="1" max="100" step="1" value="3">
+          <span class="hint">初始擲骰的數量（1–100 顆）</span>
+        </div>
+        <div class="field">
+          <label for="diceSides">骰子面數</label>
+          <input id="diceSides" type="number" min="2" max="1000" step="1" value="6">
+          <span class="hint">每顆骰子的點數範圍為 1 到面數</span>
+        </div>
+        <div class="field">
+          <label for="successTarget">成功門檻</label>
+          <input id="successTarget" type="number" min="1" max="6" step="1" value="5">
+          <span class="hint">擲出此點數或更高，計為 1 次成功</span>
+        </div>
+        <div class="field">
+          <label for="extraTarget">追加擲骰點數</label>
+          <input id="extraTarget" type="number" min="0" max="6" step="1" value="0">
+          <span class="hint">擲出指定點數時額外擲 1 顆；設為 0 可關閉</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="rollButton" type="button">🎲 擲骰子</button>
+        <p class="error" id="errorMessage" role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel results" aria-labelledby="results-title" aria-live="polite">
+      <div class="results-head">
+        <h2 id="results-title">擲骰結果</h2>
+        <span class="status" id="rollStatus">尚未擲骰</span>
+      </div>
+      <div id="resultContent">
+        <div class="empty">設定好骰子規則後，按下「擲骰子」開始。</div>
+      </div>
+    </section>
+    <p class="footnote">追加骰規則：每當骰子擲出指定點數，就會再擲一顆；追加骰也會觸發追加規則。為避免無限追加，每次擲骰最多產生 500 顆骰子。</p>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const fields = {
+        count: $('diceCount'),
+        sides: $('diceSides'),
+        success: $('successTarget'),
+        extra: $('extraTarget')
+      };
+
+      function readInteger(input, label, min, max) {
+        const value = Number(input.value);
+        if (!Number.isInteger(value) || value < min || value > max) {
+          throw new Error(`${label}請輸入 ${min} 到 ${max} 之間的整數。`);
+        }
+        return value;
+      }
+
+      function rollDice() {
+        $('errorMessage').textContent = '';
+        $('resultContent').innerHTML = '';
+
+        try {
+          const count = readInteger(fields.count, '骰子數量', 1, 100);
+          const sides = readInteger(fields.sides, '骰子面數', 2, 1000);
+          const success = readInteger(fields.success, '成功門檻', 1, sides);
+          const extra = readInteger(fields.extra, '追加擲骰點數', 0, sides);
+
+          const rolls = [];
+          let pending = count;
+          let total = 0;
+          let successes = 0;
+          let capped = false;
+
+          while (pending > 0) {
+            if (rolls.length >= 500) {
+              capped = true;
+              break;
+            }
+            pending--;
+            // crypto.getRandomValues 提供較佳的隨機品質，並以拒絕取樣避免取餘數偏差。
+            const range = 0x100000000;
+            const limit = Math.floor(range / sides) * sides;
+            const buffer = new Uint32Array(1);
+            let random;
+            do {
+              crypto.getRandomValues(buffer);
+              random = buffer[0];
+            } while (random >= limit);
+            const value = (random % sides) + 1;
+            const isBonus = rolls.length >= count;
+            rolls.push({ value, isBonus });
+            total += value;
+            if (value >= success) successes++;
+            if (extra !== 0 && value === extra) pending++;
+          }
+
+          renderResults(rolls, total, successes, count, capped);
+          $('rollStatus').textContent = `本次共擲出 ${rolls.length} 顆骰子`;
+          if (capped) {
+            $('errorMessage').textContent = '已達 500 顆骰子的安全上限，結果僅計算已擲出的骰子。';
+          }
+          if (typeof gtag === 'function') {
+            gtag('event', 'roll_dice', {
+              dice_count: count,
+              dice_sides: sides,
+              success_target: success,
+              extra_target: extra,
+              rolled_total: rolls.length
+            });
+          }
+        } catch (error) {
+          $('resultContent').innerHTML = '<div class="empty">請修正設定後再擲骰。</div>';
+          $('rollStatus').textContent = '設定有誤';
+          $('errorMessage').textContent = error.message;
+        }
+      }
+
+      function renderResults(rolls, total, successes, initialCount, capped) {
+        const content = $('resultContent');
+        const summary = document.createElement('div');
+        summary.className = 'summary';
+
+        const totalStat = document.createElement('div');
+        totalStat.className = 'stat';
+        totalStat.innerHTML = `<span class="stat-label">總點數</span><strong class="stat-value">${total}</strong>`;
+
+        const successStat = document.createElement('div');
+        successStat.className = 'stat success';
+        successStat.innerHTML = `<span class="stat-label">成功數</span><strong class="stat-value">${successes}</strong>`;
+
+        summary.append(totalStat, successStat);
+
+        const list = document.createElement('div');
+        list.className = 'dice-list';
+        rolls.forEach((roll, index) => {
+          const die = document.createElement('div');
+          die.className = 'die' + (roll.isBonus ? ' bonus' : '') +
+            (roll.value >= Number(fields.success.value) ? ' is-success' : '');
+
+          const value = document.createElement('span');
+          value.className = 'die-value';
+          value.textContent = roll.value;
+
+          const label = document.createElement('span');
+          label.className = 'die-label';
+          label.textContent = `${roll.isBonus ? '追加骰' : '骰子'} ${roll.isBonus ? index - initialCount + 1 : index + 1}`;
+
+          die.append(value, label);
+          list.append(die);
+        });
+
+        content.append(summary, list);
+      }
+
+      $('rollButton').addEventListener('click', rollDice);
+
+      // 隨面數更新兩個規則欄位的 HTML 輸入範圍提示。
+      fields.sides.addEventListener('input', () => {
+        const sides = Number(fields.sides.value);
+        if (Number.isInteger(sides) && sides >= 2 && sides <= 1000) {
+          fields.success.max = String(sides);
+          fields.extra.max = String(sides);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+```[cite: 1]
+
+### GitHub 部署小提醒
+* 確保 `dice.html` 與你的 `index.html` 放在**同一個資料夾**中（例如都在 repository 根目錄，或都在同一個子資料夾），`./index.html` 才能順利連回首頁。
+* 如果你希望連結文字改成其他名稱（例如「首頁」或「返回主選單」），只需修改 `<a class="home-link" href="./index.html">← 回首頁</a>` 裡的文字即可。
